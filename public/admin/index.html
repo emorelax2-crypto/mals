@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="ru" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mals Chat — панель управления</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
+
+<!-- Всё оформление — готовые библиотеки с CDN -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style type="text/tailwindcss">
+  @theme {
+    --font-sans: Manrope, ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+    --color-ink-900: #0c0b16;
+    --color-ink-800: #12111f;
+    --color-ink-700: #1a1930;
+    --color-ink-600: #242240;
+    --color-ink-500: #33305c;
+
+    --color-brand-400: #8b7dff;
+    --color-brand-500: #6d5efc;
+    --color-brand-600: #5a4ae0;
+  }
+
+  .field { @apply w-full rounded-xl bg-ink-800 border border-ink-600 px-3.5 py-2.5 text-sm text-slate-100 outline-none transition focus:border-brand-500; }
+  .lbl   { @apply block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5; }
+  .btn   { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition; }
+</style>
+<style>
+  body { background:#0c0b16; color:#cbd5e1 }
+  [x-cloak] { display:none !important }
+  ::-webkit-scrollbar { width:9px; height:9px }
+  ::-webkit-scrollbar-thumb { background:#2a2848; border-radius:9px }
+  ::-webkit-scrollbar-track { background:transparent }
+</style>
+<!-- Оформление берём готовым: Tailwind, Alpine, Lucide, шрифты Google.
+     Основной источник — CDN. Если он недоступен, подхватывается та же версия из /vendor. -->
+<script>
+(function () {
+  var ASSETS = [
+    ["https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3/dist/index.global.js", "/vendor/tailwind.js"],
+    ["https://cdn.jsdelivr.net/npm/lucide@1.46.0/dist/umd/lucide.min.js", "/vendor/lucide.js"],
+    ["/admin/app.js", null],
+    ["https://cdn.jsdelivr.net/npm/alpinejs@3.17.3/dist/cdn.min.js", "/vendor/alpine.js"]
+  ];
+  (function next(i) {
+    if (i >= ASSETS.length) return;
+    var cdn = ASSETS[i][0], local = ASSETS[i][1];
+    var tag = document.createElement('script');
+    tag.src = cdn;
+    tag.onload = function () { next(i + 1); };
+    tag.onerror = function () {
+      if (!local) { next(i + 1); return; }
+      var fallback = document.createElement('script');
+      fallback.src = local;
+      fallback.onload = fallback.onerror = function () { next(i + 1); };
+      document.head.appendChild(fallback);
+    };
+    document.head.appendChild(tag);
+  })(0);
+})();
+</script>
+</head>
+
+<body class="font-sans text-slate-200 antialiased">
+<div x-data="panel" x-cloak>
+
+<!-- ======================= ВХОД ======================= -->
+<template x-if="booted && !authed">
+  <div class="min-h-screen grid place-items-center px-5">
+    <form @submit.prevent="login()" class="w-full max-w-sm rounded-3xl border border-ink-600 bg-ink-800 p-8 shadow-2xl">
+      <div class="mb-6 flex items-center gap-3">
+        <div class="grid h-11 w-11 place-items-center rounded-2xl bg-brand-500 text-white"><i data-lucide="message-square-more"></i></div>
+        <div>
+          <div class="text-lg font-extrabold text-white">Mals Chat</div>
+          <div class="text-xs text-slate-500">панель управления</div>
+        </div>
+      </div>
+      <label class="lbl">Пароль администратора</label>
+      <input type="password" x-model="password" class="field" placeholder="••••••••" autofocus>
+      <p x-show="loginError" x-text="loginError" class="mt-2 text-xs text-rose-400"></p>
+      <button class="btn mt-5 w-full bg-brand-500 text-white hover:bg-brand-600">Войти</button>
+      <p class="mt-4 text-center text-[11px] leading-relaxed text-slate-600">Пароль задаётся переменной ADMIN_PASSWORD в файле .env</p>
+    </form>
+  </div>
+</template>
+
+<!-- ======================= ПАНЕЛЬ ======================= -->
+<template x-if="authed">
+<div class="flex min-h-screen">
+
+  <!-- сайдбар -->
+  <aside class="hidden w-60 shrink-0 flex-col border-r border-ink-700 bg-ink-800 p-4 lg:flex">
+    <div class="mb-7 flex items-center gap-3 px-2">
+      <div class="grid h-10 w-10 place-items-center rounded-xl bg-brand-500 text-white"><i data-lucide="message-square-more"></i></div>
+      <div>
+        <div class="font-extrabold leading-tight text-white">Mals Chat</div>
+        <div class="text-[11px] text-slate-500" x-text="model"></div>
+      </div>
+    </div>
+
+    <nav class="space-y-1">
+      <template x-for="item in [
+        {id:'inbox',    icon:'inbox',        label:'Диалоги'},
+        {id:'assistant',icon:'bot',          label:'Ассистент'},
+        {id:'triggers', icon:'key-round',    label:'Ключевые слова'},
+        {id:'media',    icon:'image',        label:'Фото'},
+        {id:'connect',  icon:'plug-zap',     label:'Подключение'}
+      ]" :key="item.id">
+        <button @click="tab = item.id"
+          class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition"
+          :class="tab === item.id ? 'bg-brand-500 text-white' : 'text-slate-400 hover:bg-ink-700 hover:text-slate-200'">
+          <i :data-lucide="item.icon" class="h-[18px] w-[18px]"></i>
+          <span x-text="item.label"></span>
+          <span x-show="item.id === 'inbox' && stats.unread > 0"
+                class="ml-auto rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-bold text-white" x-text="stats.unread"></span>
+        </button>
+      </template>
+    </nav>
+
+    <div class="mt-auto space-y-3 pt-6">
+      <div class="rounded-2xl border border-ink-600 bg-ink-700/60 p-3.5">
+        <div class="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <span>Очередь</span>
+          <span class="flex items-center gap-1.5 text-emerald-400"><span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>24/7</span>
+        </div>
+        <div class="flex items-baseline gap-1">
+          <span class="text-2xl font-extrabold text-white" x-text="queue.inFlight"></span>
+          <span class="text-sm text-slate-500">/ <span x-text="queue.limit"></span> одновременно</span>
+        </div>
+        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-600">
+          <div class="h-full rounded-full bg-brand-500 transition-all"
+               :style="`width:${queue.limit ? Math.min(100, (queue.inFlight / queue.limit) * 100) : 0}%`"></div>
+        </div>
+        <div class="mt-2 text-[11px] text-slate-500">В ожидании: <span x-text="queue.pending"></span></div>
+      </div>
+      <button @click="logout()" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-500 hover:bg-ink-700 hover:text-slate-300">
+        <i data-lucide="log-out" class="h-[18px] w-[18px]"></i> Выйти
+      </button>
+    </div>
+  </aside>
+
+  <!-- контент -->
+  <main class="flex min-w-0 flex-1 flex-col">
+
+    <!-- верхняя полоса -->
+    <header class="flex flex-wrap items-center gap-3 border-b border-ink-700 bg-ink-800/70 px-5 py-3.5 backdrop-blur">
+      <select x-model="tab" class="field !w-auto lg:hidden">
+        <option value="inbox">Диалоги</option><option value="assistant">Ассистент</option>
+        <option value="triggers">Ключевые слова</option><option value="media">Фото</option><option value="connect">Подключение</option>
+      </select>
+
+      <template x-for="chip in [
+        {icon:'users',           label:'Диалогов',      value: stats.conversations},
+        {icon:'activity',        label:'Активны сутки', value: stats.activeToday},
+        {icon:'message-circle',  label:'Сообщений',     value: stats.messages},
+        {icon:'wifi',            label:'Онлайн',        value: online}
+      ]" :key="chip.label">
+        <div class="flex items-center gap-2 rounded-xl border border-ink-600 bg-ink-700/50 px-3 py-1.5">
+          <i :data-lucide="chip.icon" class="h-4 w-4 text-brand-400"></i>
+          <span class="text-sm font-bold text-white" x-text="chip.value"></span>
+          <span class="hidden text-xs text-slate-500 sm:inline" x-text="chip.label"></span>
+        </div>
+      </template>
+
+      <label class="ml-auto flex cursor-pointer items-center gap-2.5 rounded-xl border border-ink-600 bg-ink-700/50 px-3 py-1.5">
+        <input type="checkbox" :checked="settings.autoreply == 1"
+               @change="settings.autoreply = $event.target.checked ? 1 : 0; saveSettings()"
+               class="h-4 w-4 accent-brand-500">
+        <span class="text-xs font-semibold" :class="settings.autoreply == 1 ? 'text-emerald-400' : 'text-slate-500'"
+              x-text="settings.autoreply == 1 ? 'Автоответ включён' : 'Автоответ выключен'"></span>
+      </label>
+    </header>
+
+    <!-- ============ ДИАЛОГИ ============ -->
+    <section x-show="tab === 'inbox'" class="flex min-h-0 flex-1">
+      <div class="flex w-full max-w-sm shrink-0 flex-col border-r border-ink-700 bg-ink-800/40">
+        <div class="p-3">
+          <div class="relative">
+            <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600"></i>
+            <input x-model="search" @input.debounce.300ms="loadConversations()" class="field !pl-9" placeholder="Поиск по имени или id">
+          </div>
+        </div>
+        <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+          <template x-if="!conversations.length">
+            <div class="px-4 py-12 text-center text-sm text-slate-600">Диалогов пока нет.<br>Откройте демо-страницу и напишите ассистенту.</div>
+          </template>
+          <template x-for="c in conversations" :key="c.id">
+            <button @click="openConversation(c.id)"
+              class="mb-1 w-full rounded-xl px-3 py-2.5 text-left transition"
+              :class="current && current.id === c.id ? 'bg-brand-500/15 ring-1 ring-brand-500/40' : 'hover:bg-ink-700/60'">
+              <div class="flex items-center gap-2">
+                <span class="truncate text-sm font-bold text-white" x-text="c.contact_name || c.external_id"></span>
+                <span x-show="c.takeover" class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">ВЫ</span>
+                <span class="ml-auto shrink-0 text-[11px] text-slate-600" x-text="when(c.updated_at)"></span>
+              </div>
+              <div class="mt-0.5 flex items-center gap-2">
+                <span class="truncate text-xs text-slate-500" x-text="trim(c.last_message)"></span>
+                <span x-show="c.unread > 0" class="ml-auto shrink-0 rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white" x-text="c.unread"></span>
+              </div>
+              <div class="mt-1 flex items-center gap-1.5 text-[10px] text-slate-600">
+                <i data-lucide="hash" class="h-3 w-3"></i><span x-text="c.channel"></span>
+                <span x-show="typingIn[c.id]" class="text-brand-400">· печатает…</span>
+              </div>
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <div class="flex min-w-0 flex-1 flex-col">
+        <template x-if="!current">
+          <div class="grid flex-1 place-items-center px-6 text-center text-sm text-slate-600">
+            <div>
+              <i data-lucide="mouse-pointer-click" class="mx-auto mb-3 h-8 w-8 text-slate-700"></i>
+              Выберите диалог слева
+            </div>
+          </div>
+        </template>
+
+        <template x-if="current">
+          <div class="flex min-h-0 flex-1 flex-col">
+            <div class="flex items-center gap-3 border-b border-ink-700 px-5 py-3">
+              <div class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink-600 text-sm font-bold text-white"
+                   x-text="(current.contact_name || 'К').charAt(0).toUpperCase()"></div>
+              <div class="min-w-0">
+                <div class="truncate text-sm font-bold text-white" x-text="current.contact_name || current.external_id"></div>
+                <div class="text-[11px] text-slate-500"><span x-text="current.channel"></span> · <span x-text="current.external_id"></span></div>
+              </div>
+              <button @click="toggleTakeover()" class="btn ml-auto shrink-0 border"
+                :class="current.takeover ? 'border-amber-500/40 bg-amber-500/15 text-amber-400' : 'border-ink-600 text-slate-400 hover:text-white'">
+                <i :data-lucide="current.takeover ? 'user-check' : 'bot'" class="h-4 w-4"></i>
+                <span x-text="current.takeover ? 'Отвечаете вы' : 'Отвечает ИИ'"></span>
+              </button>
+            </div>
+
+            <div x-ref="log" class="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+              <template x-for="m in messages" :key="m.id">
+                <div class="flex" :class="m.role === 'user' ? 'justify-start' : 'justify-end'">
+                  <div class="max-w-[78%] space-y-1.5">
+                    <div class="flex items-center gap-2 text-[11px] text-slate-600" :class="m.role !== 'user' && 'justify-end'">
+                      <span x-text="roleLabel(m.role)"></span><span x-text="time(m.created_at)"></span>
+                    </div>
+                    <div class="whitespace-pre-wrap break-words rounded-2xl px-4 py-2.5 text-sm"
+                         :class="{
+                           'bg-ink-700 text-slate-200': m.role === 'user',
+                           'bg-brand-500 text-white': m.role === 'assistant',
+                           'bg-amber-500/20 text-amber-100 ring-1 ring-amber-500/30': m.role === 'operator'
+                         }" x-text="m.content"></div>
+                    <template x-for="att in (m.attachments || [])">
+                      <div>
+                        <img x-show="att.type === 'image'" :src="att.url" class="max-w-[220px] rounded-xl border border-ink-600" loading="lazy" alt="">
+                        <div x-show="att.type === 'card'" class="rounded-xl border border-ink-600 bg-ink-800 p-3 text-sm">
+                          <div class="font-bold text-white" x-text="att.name"></div>
+                          <div class="font-bold text-brand-400" x-text="att.price"></div>
+                          <div class="text-xs text-slate-500" x-text="att.description"></div>
+                          <a x-show="att.url" :href="att.url" target="_blank" rel="noopener"
+                             class="mt-2 inline-block rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white" x-text="att.buttonText"></a>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </template>
+              <div x-show="typingIn[current.id]" class="text-xs text-brand-400">ассистент печатает…</div>
+            </div>
+
+            <form @submit.prevent="sendOperator()" class="flex gap-2 border-t border-ink-700 p-3">
+              <input x-model="operatorText" class="field" placeholder="Написать как живой менеджер…">
+              <button class="btn shrink-0 bg-brand-500 text-white hover:bg-brand-600"><i data-lucide="send" class="h-4 w-4"></i></button>
+            </form>
+            <p class="px-4 pb-3 text-[11px] text-slate-600">Ваше сообщение уходит с пометкой «живой человек». Чтобы ИИ замолчал в этом диалоге — переключите кнопку сверху.</p>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- ============ АССИСТЕНТ ============ -->
+    <section x-show="tab === 'assistant'" class="flex-1 overflow-y-auto p-5">
+      <div class="mx-auto grid max-w-6xl gap-5 lg:grid-cols-2">
+
+        <div class="space-y-5">
+          <div class="rounded-2xl border border-ink-600 bg-ink-800 p-5">
+            <h2 class="mb-4 flex items-center gap-2 font-bold text-white"><i data-lucide="bot" class="h-5 w-5 text-brand-400"></i> Кто отвечает</h2>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div><label class="lbl">Имя</label><input x-model="settings.bot_name" class="field"></div>
+              <div><label class="lbl">Роль</label><input x-model="settings.bot_role" class="field"></div>
+            </div>
+            <div class="mt-4"><label class="lbl">Ссылка на аватар</label><input x-model="settings.avatar_url" class="field" placeholder="/uploads/… или https://…"></div>
+            <div class="mt-4"><label class="lbl">Приветствие</label><textarea x-model="settings.greeting" rows="2" class="field"></textarea></div>
+            <div class="mt-4">
+              <label class="lbl">Подпись-плашка в виджете</label>
+              <input x-model="settings.disclosure_line" class="field">
+              <p class="mt-1.5 text-[11px] text-slate-600">Видна клиенту всегда. Текст можно менять, саму плашку — нет.</p>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-ink-600 bg-ink-800 p-5">
+            <h2 class="mb-4 flex items-center gap-2 font-bold text-white"><i data-lucide="scroll-text" class="h-5 w-5 text-brand-400"></i> Характер и знания</h2>
+            <textarea x-model="settings.persona" rows="10" class="field font-mono !text-[13px] leading-relaxed"></textarea>
+            <p class="mt-2 text-[11px] leading-relaxed text-slate-600">Тон, стиль, что продаём, условия доставки и оплаты, что делать в спорных случаях. Пишите обычным текстом, по пунктам.</p>
+            <div class="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label class="lbl">Глубина обдумывания</label>
+                <select x-model="settings.effort" class="field">
+                  <option value="low">low — быстро и дёшево (чат)</option>
+                  <option value="medium">medium — баланс</option>
+                  <option value="high">high — сложные вопросы</option>
+                </select>
+              </div>
+              <div><label class="lbl">Лимит длины ответа</label><input type="number" x-model.number="settings.max_tokens" min="256" max="8000" step="100" class="field"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-5">
+          <div class="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.06] p-5">
+            <h2 class="mb-2 flex items-center gap-2 font-bold text-emerald-300"><i data-lucide="shield-check" class="h-5 w-5"></i> Встроенные правила</h2>
+            <p class="mb-3 text-xs leading-relaxed text-slate-400">Действуют всегда и добавляются к вашему тексту выше. Из панели не отключаются — на этом держится честность общения и ваша репутация.</p>
+            <pre class="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-xl bg-ink-900 p-4 font-mono text-[11.5px] leading-relaxed text-slate-400" x-text="groundRules"></pre>
+          </div>
+
+          <div class="rounded-2xl border border-ink-600 bg-ink-800 p-5">
+            <h2 class="mb-4 flex items-center gap-2 font-bold text-white"><i data-lucide="flask-conical" class="h-5 w-5 text-brand-400"></i> Проверить ответ</h2>
+            <textarea x-model="sandbox.text" rows="2" class="field" placeholder="Напишите как клиент: «сколько стоит доставка в Казань?»"></textarea>
+            <button @click="runSandbox()" :disabled="sandbox.busy" class="btn mt-3 bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50">
+              <i data-lucide="play" class="h-4 w-4"></i><span x-text="sandbox.busy ? 'Думает…' : 'Спросить'"></span>
+            </button>
+            <div x-show="sandbox.reply" class="mt-4 rounded-xl bg-ink-700 p-4 text-sm leading-relaxed" x-text="sandbox.reply"></div>
+            <div x-show="sandbox.matched.length" class="mt-2 text-[11px] text-slate-500">Сработали правила: <span x-text="sandbox.matched.join(', ')"></span></div>
+            <div x-show="sandbox.error" class="mt-3 rounded-xl bg-rose-500/10 p-3 text-xs text-rose-300" x-text="sandbox.error"></div>
+            <p class="mt-3 text-[11px] text-slate-600">Песочница не пишет в реальные диалоги.</p>
+          </div>
+
+          <div class="rounded-2xl border border-ink-600 bg-ink-800 p-5">
+            <h2 class="mb-4 flex items-center gap-2 font-bold text-white"><i data-lucide="palette" class="h-5 w-5 text-brand-400"></i> Вид виджета</h2>
+            <div class="grid gap-4 sm:grid-cols-3">
+              <div class="sm:col-span-2"><label class="lbl">Заголовок</label><input x-model="settings.widget_title" class="field"></div>
+              <div><label class="lbl">Цвет</label><input type="color" x-model="settings.widget_color" class="field !p-1 h-[42px]"></div>
+            </div>
+            <div class="mt-4"><label class="lbl">Угол экрана</label>
+              <select x-model="settings.widget_position" class="field"><option value="right">Справа</option><option value="left">Слева</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-2">
+          <button @click="saveSettings()" :disabled="savingSettings" class="btn w-full bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50">
+            <i data-lucide="save" class="h-4 w-4"></i><span x-text="savingSettings ? 'Сохраняю…' : 'Сохранить настройки'"></span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ КЛЮЧЕВЫЕ СЛОВА ============ -->
+    <section x-show="tab === 'triggers'" class="flex-1 overflow-y-auto p-5">
+      <div class="mx-auto max-w-5xl">
+        <div class="mb-5 flex flex-wrap items-center gap-3">
+          <div>
+            <h2 class="text-lg font-extrabold text-white">Ключевые слова</h2>
+            <p class="text-xs text-slate-500">Клиент пишет слово — ассистент получает факты и прикладывает к ответу фото или карточку товара.</p>
+          </div>
+          <button @click="newTrigger()" class="btn ml-auto bg-brand-500 text-white hover:bg-brand-600"><i data-lucide="plus" class="h-4 w-4"></i> Правило</button>
+        </div>
+
+        <template x-if="!triggers.length">
+          <div class="rounded-2xl border border-dashed border-ink-600 p-12 text-center text-sm text-slate-600">
+            Правил пока нет. Например: слова «цена, стоит, сколько» → фото товара и карточка с ценой.
+          </div>
+        </template>
+
+        <div class="grid gap-3 md:grid-cols-2">
+          <template x-for="t in triggers" :key="t.id">
+            <div class="rounded-2xl border border-ink-600 bg-ink-800 p-4">
+              <div class="flex items-start gap-3">
+                <img x-show="t.media_url" :src="t.media_url" class="h-14 w-14 shrink-0 rounded-xl object-cover" alt="">
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="truncate font-bold text-white" x-text="t.title || 'Без названия'"></span>
+                    <span x-show="!t.enabled" class="rounded bg-ink-600 px-1.5 py-0.5 text-[10px] text-slate-400">выкл</span>
+                  </div>
+                  <div class="mt-1 flex flex-wrap gap-1">
+                    <template x-for="word in t.keywords.split(/[,\n]/).map(s => s.trim()).filter(Boolean).slice(0, 6)">
+                      <span class="rounded-md bg-ink-700 px-1.5 py-0.5 text-[11px] text-slate-400" x-text="word"></span>
+                    </template>
+                  </div>
+                  <div class="mt-2 text-[11px] text-slate-600">
+                    <span x-text="t.match_type === 'all' ? 'нужны все слова' : 'любое слово'"></span> ·
+                    приоритет <span x-text="t.priority"></span> · сработало <span x-text="t.hits"></span> раз
+                  </div>
+                </div>
+                <div class="flex shrink-0 gap-1">
+                  <button @click="editTrigger(t)" class="rounded-lg p-2 text-slate-500 hover:bg-ink-700 hover:text-white"><i data-lucide="pencil" class="h-4 w-4"></i></button>
+                  <button @click="removeTrigger(t.id)" class="rounded-lg p-2 text-slate-500 hover:bg-rose-500/15 hover:text-rose-400"><i data-lucide="trash-2" class="h-4 w-4"></i></button>
+                </div>
+              </div>
+              <div x-show="t.card && t.card.name" class="mt-3 rounded-xl bg-ink-700/60 p-2.5 text-xs">
+                <span class="font-bold text-white" x-text="t.card.name"></span>
+                <span class="ml-2 font-bold text-brand-400" x-text="t.card.price"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- модалка правила -->
+      <div x-show="editing" @keydown.escape.window="editing = null"
+           class="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
+        <div class="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-ink-600 bg-ink-800" @click.outside="editing = null">
+          <template x-if="editing">
+            <div class="flex min-h-0 flex-col">
+              <div class="min-h-0 flex-1 overflow-y-auto p-6">
+              <h3 class="mb-5 text-lg font-extrabold text-white" x-text="editing.id ? 'Правило' : 'Новое правило'"></h3>
+
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div><label class="lbl">Название</label><input x-model="editing.title" class="field" placeholder="Цена и доставка"></div>
+                <div><label class="lbl">Приоритет</label><input type="number" x-model.number="editing.priority" class="field"></div>
+              </div>
+
+              <div class="mt-4">
+                <label class="lbl">Ключевые слова — через запятую</label>
+                <textarea x-model="editing.keywords" rows="2" class="field" placeholder="цена, сколько стоит, почём"></textarea>
+              </div>
+
+              <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                <div><label class="lbl">Когда срабатывает</label>
+                  <select x-model="editing.match_type" class="field">
+                    <option value="any">Любое из слов</option><option value="all">Все слова сразу</option>
+                  </select>
+                </div>
+                <label class="flex items-end gap-2.5 pb-2.5">
+                  <input type="checkbox" x-model="editing.enabled" class="h-4 w-4 accent-brand-500">
+                  <span class="text-sm text-slate-300">Правило включено</span>
+                </label>
+              </div>
+
+              <div class="mt-4">
+                <label class="lbl">Что ассистент должен знать</label>
+                <textarea x-model="editing.note" rows="3" class="field" placeholder="Доставка по России 390 ₽, от 5000 ₽ бесплатно. Срок 2–5 дней."></textarea>
+                <p class="mt-1.5 text-[11px] text-slate-600">Факты, а не готовая фраза. Ассистент вплетёт их в живой ответ.</p>
+              </div>
+
+              <div class="mt-4">
+                <label class="lbl">Фото к ответу</label>
+                <div class="flex flex-wrap gap-2">
+                  <button @click="editing.media_id = null" class="h-16 w-16 rounded-xl border-2 text-xs"
+                          :class="!editing.media_id ? 'border-brand-500 text-brand-400' : 'border-ink-600 text-slate-600'">без фото</button>
+                  <template x-for="m in media" :key="m.id">
+                    <button @click="editing.media_id = m.id" class="h-16 w-16 overflow-hidden rounded-xl border-2"
+                            :class="editing.media_id === m.id ? 'border-brand-500' : 'border-transparent'">
+                      <img :src="m.url" class="h-full w-full object-cover" alt="">
+                    </button>
+                  </template>
+                  <template x-if="!media.length">
+                    <span class="self-center text-xs text-slate-600">Сначала загрузите фото во вкладке «Фото».</span>
+                  </template>
+                </div>
+              </div>
+
+              <div class="mt-5 rounded-2xl border border-ink-600 p-4">
+                <div class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Карточка товара — необязательно</div>
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <input x-model="editing.card.name" class="field" placeholder="Название">
+                  <input x-model="editing.card.price" class="field" placeholder="4 900 ₽">
+                  <input x-model="editing.card.url" class="field sm:col-span-2" placeholder="https://ссылка-на-товар">
+                  <input x-model="editing.card.buttonText" class="field" placeholder="Текст кнопки">
+                  <input x-model="editing.card.description" class="field" placeholder="Короткое описание">
+                </div>
+              </div>
+
+              </div>
+
+              <div class="flex gap-3 border-t border-ink-600 bg-ink-800 px-6 py-4">
+                <button @click="saveTrigger()" class="btn flex-1 bg-brand-500 text-white hover:bg-brand-600">Сохранить</button>
+                <button @click="editing = null" class="btn border border-ink-600 text-slate-400 hover:text-white">Отмена</button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ФОТО ============ -->
+    <section x-show="tab === 'media'" class="flex-1 overflow-y-auto p-5">
+      <div class="mx-auto max-w-5xl">
+        <div class="mb-5 flex flex-wrap items-center gap-3">
+          <div>
+            <h2 class="text-lg font-extrabold text-white">Фото</h2>
+            <p class="text-xs text-slate-500">Свои картинки — товары, прайсы, примеры работ. JPEG, PNG, WebP, GIF до 8 МБ.</p>
+          </div>
+          <label class="btn ml-auto cursor-pointer bg-brand-500 text-white hover:bg-brand-600">
+            <i data-lucide="upload" class="h-4 w-4"></i>
+            <span x-text="uploading ? 'Загружаю…' : 'Загрузить'"></span>
+            <input type="file" accept="image/*" multiple class="hidden" @change="uploadFiles($event)">
+          </label>
+        </div>
+
+        <template x-if="!media.length">
+          <div class="rounded-2xl border border-dashed border-ink-600 p-12 text-center text-sm text-slate-600">Пока пусто.</div>
+        </template>
+
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <template x-for="m in media" :key="m.id">
+            <div class="group relative overflow-hidden rounded-2xl border border-ink-600 bg-ink-800">
+              <img :src="m.url" class="aspect-square w-full object-cover" loading="lazy" alt="">
+              <div class="p-2.5">
+                <div class="truncate text-xs text-slate-400" x-text="m.title"></div>
+                <div class="text-[10px] text-slate-600" x-text="Math.round(m.size / 1024) + ' КБ'"></div>
+              </div>
+              <div class="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100">
+                <button @click="copy(publicUrl + m.url)" class="rounded-lg bg-black/70 p-1.5 text-white" title="Скопировать ссылку"><i data-lucide="link" class="h-3.5 w-3.5"></i></button>
+                <button @click="removeMedia(m.id)" class="rounded-lg bg-black/70 p-1.5 text-rose-400"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ПОДКЛЮЧЕНИЕ ============ -->
+    <section x-show="tab === 'connect'" class="flex-1 overflow-y-auto p-5">
+      <div class="mx-auto max-w-4xl space-y-5">
+
+        <div class="rounded-2xl border border-ink-600 bg-ink-800 p-5">
+          <h2 class="mb-1 flex items-center gap-2 font-bold text-white"><i data-lucide="code-2" class="h-5 w-5 text-brand-400"></i> Виджет на сайт</h2>
+          <p class="mb-4 text-xs text-slate-500">Вставьте строку перед закрывающим &lt;/body&gt; на любой странице. Работает на любом движке.</p>
+          <div class="flex items-center gap-2 rounded-xl bg-ink-900 p-3">
+            <code class="min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-xs text-emerald-300" x-text="snippet"></code>
+            <button @click="copy(snippet)" class="shrink-0 rounded-lg bg-ink-700 p-2 text-slate-400 hover:text-white"><i data-lucide="copy" class="h-4 w-4"></i></button>
+          </div>
+          <a href="/" target="_blank" class="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-400 hover:text-brand-300">
+            <i data-lucide="external-link" class="h-3.5 w-3.5"></i> Посмотреть демо-страницу
+          </a>
+        </div>
+
+        <div class="rounded-2xl border border-ink-600 bg-ink-800 p-5">
+          <h2 class="mb-1 flex items-center gap-2 font-bold text-white"><i data-lucide="key" class="h-5 w-5 text-brand-400"></i> API-ключи для приложения</h2>
+          <p class="mb-4 text-xs text-slate-500">Один ключ на одну интеграцию: мобильное приложение, Telegram-бот, свой сайт. Ключ можно отозвать в любой момент.</p>
+
+          <form @submit.prevent="createKey()" class="mb-4 flex gap-2">
+            <input x-model="newKeyName" class="field" placeholder="Название: Telegram-бот">
+            <button class="btn shrink-0 bg-brand-500 text-white hover:bg-brand-600"><i data-lucide="plus" class="h-4 w-4"></i> Создать</button>
+          </form>
+
+          <div class="space-y-2">
+            <template x-for="k in keys" :key="k.id">
+              <div class="flex flex-wrap items-center gap-3 rounded-xl border border-ink-600 bg-ink-700/40 p-3">
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-white" x-text="k.name"></div>
+                  <code class="font-mono text-[11px] text-slate-500" x-text="k.key"></code>
+                </div>
+                <div class="ml-auto flex shrink-0 gap-1">
+                  <button @click="copy(k.key)" class="rounded-lg p-2 text-slate-500 hover:bg-ink-600 hover:text-white"><i data-lucide="copy" class="h-4 w-4"></i></button>
+                  <button @click="removeKey(k.id)" class="rounded-lg p-2 text-slate-500 hover:bg-rose-500/15 hover:text-rose-400"><i data-lucide="trash-2" class="h-4 w-4"></i></button>
+                </div>
+              </div>
+            </template>
+            <template x-if="!keys.length">
+              <div class="rounded-xl border border-dashed border-ink-600 p-6 text-center text-xs text-slate-600">Ключей ещё нет.</div>
+            </template>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-ink-600 bg-ink-800 p-5">
+          <h2 class="mb-1 flex items-center gap-2 font-bold text-white"><i data-lucide="terminal" class="h-5 w-5 text-brand-400"></i> Запрос из вашего кода</h2>
+          <p class="mb-4 text-xs text-slate-500">Отправляете текст клиента — получаете ответ ассистента и вложения. Диалог продолжается сам: истории хранятся по паре <code class="text-slate-400">channel + contact_id</code>.</p>
+          <div class="relative">
+            <pre class="overflow-x-auto rounded-xl bg-ink-900 p-4 font-mono text-[11.5px] leading-relaxed text-slate-300" x-text="curlExample(keys.length ? keys[0].key : '')"></pre>
+            <button @click="copy(curlExample(keys.length ? keys[0].key : ''))" class="absolute right-2 top-2 rounded-lg bg-ink-700 p-2 text-slate-400 hover:text-white"><i data-lucide="copy" class="h-4 w-4"></i></button>
+          </div>
+          <div class="mt-4 grid gap-2 text-xs text-slate-500">
+            <div><code class="text-brand-400">POST /api/v1/chat</code> — сообщение клиента, в ответ реплика ассистента</div>
+            <div><code class="text-brand-400">POST /api/v1/messages</code> — записать реплику без ответа ИИ</div>
+            <div><code class="text-brand-400">GET /api/v1/conversations/:channel/:contact_id</code> — история диалога</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+</template>
+
+<!-- уведомление -->
+<div x-show="toast" x-transition
+     class="fixed bottom-5 left-1/2 z-[60] -translate-x-1/2 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-2xl"
+     :class="toast && toast.kind === 'err' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'"
+     x-text="toast && toast.text"></div>
+
+</div>
+<script>
+// Догоняем иконки, если библиотека доехала позже первой отрисовки Alpine.
+(function drawIcons(tries) {
+  if (window.lucide) return window.lucide.createIcons();
+  if (tries < 100) setTimeout(function () { drawIcons(tries + 1); }, 100);
+})(0);
+</script>
+</body>
+</html>

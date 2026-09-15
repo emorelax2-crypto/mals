@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mals Chat — ИИ-ассистент для чатов 24/7</title>
+<meta name="description" content="Один ассистент держит десятки диалогов круглосуточно: виджет на сайт, API для приложения, ключевые слова с фото и карточками товаров.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style type="text/tailwindcss">
+  @theme {
+    --font-sans: Manrope, ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+    --color-ink-900: #0c0b16;
+    --color-ink-800: #12111f;
+    --color-ink-700: #1a1930;
+    --color-ink-600: #242240;
+    --color-ink-500: #33305c;
+
+    --color-brand-400: #8b7dff;
+    --color-brand-500: #6d5efc;
+    --color-brand-600: #5a4ae0;
+  }
+</style>
+<style>
+  body { background:#0c0b16; color:#cbd5e1 }
+  .glow { background:radial-gradient(60rem 30rem at 50% -10%, rgba(109,94,252,.22), transparent 70%) }
+</style>
+<!-- Оформление берём готовым: Tailwind, Alpine, Lucide, шрифты Google.
+     Основной источник — CDN. Если он недоступен, подхватывается та же версия из /vendor. -->
+<script>
+(function () {
+  var ASSETS = [
+    ["https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3/dist/index.global.js", "/vendor/tailwind.js"],
+    ["https://cdn.jsdelivr.net/npm/lucide@1.46.0/dist/umd/lucide.min.js", "/vendor/lucide.js"]
+  ];
+  (function next(i) {
+    if (i >= ASSETS.length) return;
+    var cdn = ASSETS[i][0], local = ASSETS[i][1];
+    var tag = document.createElement('script');
+    tag.src = cdn;
+    tag.onload = function () { next(i + 1); };
+    tag.onerror = function () {
+      if (!local) { next(i + 1); return; }
+      var fallback = document.createElement('script');
+      fallback.src = local;
+      fallback.onload = fallback.onerror = function () { next(i + 1); };
+      document.head.appendChild(fallback);
+    };
+    document.head.appendChild(tag);
+  })(0);
+})();
+</script>
+</head>
+
+<body class="font-sans text-slate-300 antialiased">
+<div class="glow">
+
+  <!-- шапка -->
+  <header class="mx-auto flex max-w-6xl items-center gap-4 px-6 py-6">
+    <div class="flex items-center gap-2.5">
+      <div class="grid h-9 w-9 place-items-center rounded-xl bg-brand-500 text-white"><i data-lucide="message-square-more" class="h-5 w-5"></i></div>
+      <span class="font-extrabold text-white">Mals Chat</span>
+    </div>
+    <a href="/admin" class="ml-auto inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600">
+      <i data-lucide="layout-dashboard" class="h-4 w-4"></i> Панель управления
+    </a>
+  </header>
+
+  <!-- первый экран -->
+  <section class="mx-auto max-w-4xl px-6 pb-16 pt-10 text-center sm:pt-16">
+    <div class="mb-5 inline-flex items-center gap-2 rounded-full border border-ink-600 bg-ink-800/60 px-3.5 py-1.5 text-xs font-semibold text-brand-400">
+      <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> Работает круглосуточно · до 50+ диалогов разом
+    </div>
+    <h1 class="text-4xl font-extrabold leading-[1.1] tracking-tight text-white sm:text-6xl">
+      ИИ-ассистент, который<br class="hidden sm:block"> отвечает всем и сразу
+    </h1>
+    <p class="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-slate-400 sm:text-lg">
+      Виджет на сайт одной строкой, API для приложения или бота. Ассистент ведёт десятки переписок
+      параллельно, знает ваш товар и присылает фото по ключевым словам. Вы подключаетесь к любому
+      диалогу в один клик.
+    </p>
+    <div class="mt-8 flex flex-wrap justify-center gap-3">
+      <a href="/admin" class="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-6 py-3 font-semibold text-white transition hover:bg-brand-600">
+        Открыть панель <i data-lucide="arrow-right" class="h-4 w-4"></i>
+      </a>
+      <button onclick="document.querySelector('.mals-launcher')?.click()"
+              class="inline-flex items-center gap-2 rounded-xl border border-ink-600 bg-ink-800 px-6 py-3 font-semibold text-slate-200 transition hover:border-brand-500">
+        <i data-lucide="play" class="h-4 w-4"></i> Попробовать чат
+      </button>
+    </div>
+    <p class="mt-4 text-xs text-slate-600">Виджет уже работает на этой странице — кнопка в правом нижнем углу.</p>
+  </section>
+
+  <!-- возможности -->
+  <section class="mx-auto max-w-6xl px-6 pb-20">
+    <div id="features" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+  </section>
+
+  <!-- как подключить -->
+  <section class="mx-auto max-w-4xl px-6 pb-24">
+    <h2 class="mb-8 text-center text-2xl font-extrabold text-white sm:text-3xl">Подключение за три шага</h2>
+    <ol class="space-y-4">
+      <li class="flex gap-4 rounded-2xl border border-ink-600 bg-ink-800/60 p-5">
+        <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-500 font-bold text-white">1</span>
+        <div>
+          <div class="font-bold text-white">Настройте ассистента</div>
+          <p class="mt-1 text-sm text-slate-400">Имя, тон, что продаёте, условия доставки. Проверьте ответ в песочнице — это не трогает живые диалоги.</p>
+        </div>
+      </li>
+      <li class="flex gap-4 rounded-2xl border border-ink-600 bg-ink-800/60 p-5">
+        <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-500 font-bold text-white">2</span>
+        <div class="min-w-0">
+          <div class="font-bold text-white">Поставьте виджет или ключ</div>
+          <p class="mt-1 text-sm text-slate-400">На сайт — одна строка перед &lt;/body&gt;. В приложение — API-ключ и один POST-запрос.</p>
+          <code class="mt-3 block overflow-x-auto whitespace-nowrap rounded-xl bg-ink-900 p-3 font-mono text-xs text-emerald-300">&lt;script src="/widget.js" async&gt;&lt;/script&gt;</code>
+        </div>
+      </li>
+      <li class="flex gap-4 rounded-2xl border border-ink-600 bg-ink-800/60 p-5">
+        <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-500 font-bold text-white">3</span>
+        <div>
+          <div class="font-bold text-white">Следите из панели</div>
+          <p class="mt-1 text-sm text-slate-400">Все переписки в одном инбоксе. Видите, что отвечает ИИ, и в любой момент перехватываете диалог сами.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- честность -->
+  <section class="mx-auto max-w-4xl px-6 pb-24">
+    <div class="rounded-3xl border border-emerald-500/25 bg-emerald-500/[0.06] p-7">
+      <h2 class="mb-3 flex items-center gap-2.5 text-xl font-extrabold text-emerald-300">
+        <i data-lucide="shield-check" class="h-6 w-6"></i> Ассистент не притворяется человеком
+      </h2>
+      <p class="text-sm leading-relaxed text-slate-400">
+        Персону можно настроить как угодно — имя, характер, тон. Но на прямой вопрос «ты бот?»
+        ассистент отвечает честно, не выдаёт себя за конкретного живого человека и не выдумывает
+        факты о товарах. Эти правила зашиты в сервер и не отключаются из панели.
+        Так чат остаётся инструментом продаж, а не поводом для жалоб и блокировок.
+      </p>
+    </div>
+  </section>
+
+  <footer class="border-t border-ink-700 py-8 text-center text-xs text-slate-600">
+    Mals Chat · работает на Claude Opus 5 · <a href="/admin" class="text-brand-400 hover:text-brand-300">панель управления</a>
+  </footer>
+</div>
+
+<script>
+const FEATURES = [
+  ['users-round','Десятки диалогов разом','Очередь держит до 50 и больше параллельных ответов. Внутри одного диалога сообщения не перемешиваются.'],
+  ['clock','Круглосуточно','Ночь, выходные, наплыв заявок — отвечает одинаково быстро и не устаёт.'],
+  ['key-round','Ключевые слова','Клиент пишет «цена» — ассистент получает ваши факты и прикладывает фото и карточку товара.'],
+  ['image-plus','Свои фото','Загружаете картинки в панели и привязываете к правилам. Никакого кода.'],
+  ['hand','Перехват диалога','Один клик — ИИ замолкает, дальше пишете вы. Клиент видит пометку «живой человек».'],
+  ['plug-zap','Виджет и API','Сайт, мобильное приложение, Telegram-бот — везде один и тот же ассистент и общая история.'],
+];
+
+document.querySelector('#features').innerHTML = FEATURES.map(([icon, title, text]) => `
+  <div class="rounded-2xl border border-ink-600 bg-ink-800/60 p-5 transition hover:border-brand-500/50">
+    <div class="mb-3 grid h-10 w-10 place-items-center rounded-xl bg-brand-500/15 text-brand-400">
+      <i data-lucide="${icon}" class="h-5 w-5"></i>
+    </div>
+    <div class="font-bold text-white">${title}</div>
+    <p class="mt-1.5 text-sm leading-relaxed text-slate-400">${text}</p>
+  </div>`).join('');
+
+// Иконки рисуем, как только библиотека доехала (CDN или запасной путь).
+(function drawIcons(tries) {
+  if (window.lucide) return lucide.createIcons();
+  if (tries < 100) setTimeout(function () { drawIcons(tries + 1); }, 100);
+})(0);
+</script>
+
+<!-- живой виджет -->
+<script src="/widget.js" async></script>
+</body>
+</html>
