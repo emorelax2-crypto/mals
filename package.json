@@ -1,0 +1,20 @@
+{
+  "name": "mals",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MALS — mobile messenger (PWA) with chats, voice/video calls and paid gifts",
+  "type": "module",
+  "main": "server/index.js",
+  "engines": { "node": ">=22.5.0" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "dev": "node --watch --disable-warning=ExperimentalWarning server/index.js",
+    "seed": "node --disable-warning=ExperimentalWarning scripts/seed.mjs",
+    "icons": "node scripts/make-icons.mjs",
+    "test": "node scripts/e2e.mjs"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "ws": "^8.18.3"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "appId": "app.mals.messenger",
+  "appName": "MALS",
+  "webDir": "web",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://REPLACE-WITH-YOUR-DOMAIN",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#0e0f13"
+  },
+  "android": {
+    "backgroundColor": "#0e0f13",
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#0e0f13",
+      "showSpinner": false
+    }
+  }
+}

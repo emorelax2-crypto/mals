@@ -1,0 +1,22 @@
+# Деплой одной кнопкой на Render (https://render.com) — WebSocket поддерживается из коробки.
+services:
+  - type: web
+    name: mals
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/config
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: PUBLIC_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+    disk:
+      name: mals-data
+      mountPath: /data
+      sizeGB: 1
