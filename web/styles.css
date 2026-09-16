@@ -488,6 +488,22 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
   color: #fff; background: rgba(0, 0, 0, .35); border-radius: 999px; padding: 1px 5px;
 }
 
+/* плашка офлайн-режима */
+.offlinebar {
+  position: fixed; z-index: 60; left: 50%; transform: translateX(-50%);
+  top: calc(var(--safe-t) + var(--header-h) + 8px);
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+  background: rgba(60, 46, 20, .92); border: 1px solid rgba(255, 194, 71, .35);
+  color: #ffd98a; box-shadow: var(--shadow); backdrop-filter: blur(10px);
+  max-width: 92%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.offlinebar__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--star); animation: blink 1.6s infinite; flex: 0 0 auto; }
+@media (min-width: 720px) { .offlinebar { left: 50%; } }
+
+/* часики у неотправленного сообщения */
+.msg__meta .pending { animation: spin 3s linear infinite; }
+
 /* тосты */
 .toasts {
   position: fixed; top: calc(var(--safe-t) + 10px); left: 0; right: 0; z-index: 120;

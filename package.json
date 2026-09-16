@@ -11,7 +11,8 @@
     "dev": "node --watch --disable-warning=ExperimentalWarning server/index.js",
     "seed": "node --disable-warning=ExperimentalWarning scripts/seed.mjs",
     "icons": "node scripts/make-icons.mjs",
-    "test": "node scripts/e2e.mjs"
+    "test": "node scripts/e2e.mjs",
+    "test:offline": "node scripts/e2e-offline.mjs"
   },
   "dependencies": {
     "express": "^5.2.1",

@@ -64,22 +64,50 @@ const state = {
   gifts: [],
   ws: null,
   wsRetry: 0,
+  offline: false,
 };
 
 /* ------------------------------ сеть ------------------------------ */
 async function api(path, { method = 'GET', body } = {}) {
-  const res = await fetch(`/api${path}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(state.token ? { Authorization: `Bearer ${state.token}` } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res;
+  try {
+    res = await fetch(`/api${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(state.token ? { Authorization: `Bearer ${state.token}` } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    // Запрос не ушёл — устройство офлайн или сервер недоступен.
+    const err = new Error('Нет подключения к сети');
+    err.offline = true;
+    throw err;
+  }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Ошибка ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(data.error || `Ошибка ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
   return data;
 }
+
+/* ------------------------- офлайн-кэш ------------------------- */
+/** Последнее известное состояние, чтобы приложение открывалось без сети. */
+const cache = {
+  get(key, fallback = null) {
+    try { return JSON.parse(localStorage.getItem(`mals.cache.${key}`)) ?? fallback; }
+    catch { return fallback; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(`mals.cache.${key}`, JSON.stringify(value)); } catch {}
+  },
+  clear() {
+    for (const k of Object.keys(localStorage)) if (k.startsWith('mals.cache.')) localStorage.removeItem(k);
+  },
+};
 
 /* ------------------------------ тосты ------------------------------ */
 function toast(text, kind = '') {
@@ -161,6 +189,7 @@ $('#auth-form').addEventListener('submit', async (e) => {
 $('#logout').addEventListener('click', async () => {
   try { await api('/auth/logout', { method: 'POST' }); } catch {}
   localStorage.removeItem('mals.token');
+  cache.clear();
   state.ws?.close();
   location.reload();
 });
@@ -182,7 +211,8 @@ function connect() {
   });
 
   ws.addEventListener('close', () => {
-    setStatus('нет соединения');
+    setStatus(navigator.onLine ? 'нет соединения' : 'нет сети');
+    if (!navigator.onLine) setOffline(true);
     if (!state.token) return;
     const delay = Math.min(15000, 800 * 2 ** state.wsRetry++);
     setTimeout(connect, delay);
@@ -198,6 +228,86 @@ function setStatus(text) {
   if (node) node.textContent = text;
 }
 
+/* ------------------------- состояние сети ------------------------- */
+function setOffline(on, reason = '') {
+  state.offline = on;
+  if (on) state.online.clear();   // без связи мы не знаем, кто в сети
+  const bar = $('#offline-bar');
+  const pending = cache.get('outbox', []).length;
+  bar.hidden = !on;
+  if (on) {
+    $('#offline-text').textContent = pending
+      ? `Нет сети — ${pending} сообщ. отправится автоматически`
+      : (reason || 'Нет сети — работаем офлайн');
+    setStatus('нет сети');
+  }
+}
+
+window.addEventListener('offline', () => setOffline(true));
+window.addEventListener('online', () => {
+  setStatus('подключение…');
+  resync();
+});
+
+/** Возврат в сеть: обновляем данные, поднимаем сокет, досылаем очередь. */
+async function resync() {
+  if (!state.token || !state.me) return;
+  try {
+    state.me = await api('/me');
+    cache.set('me', state.me);
+    renderBalance();
+    renderMeAvatar();
+    setOffline(false);
+    await flushOutbox();
+    await loadChats();
+    if (state.chat) await refreshOpenChat();
+    if (state.ws?.readyState !== WebSocket.OPEN) connect();
+  } catch (err) {
+    if (err.offline) setOffline(true);
+  }
+}
+
+/* ------------------------- очередь отправки ------------------------- */
+/** Сообщения, написанные без сети, ждут своей очереди в localStorage. */
+function queueMessage(chatId, body) {
+  const item = { id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, chatId, body, createdAt: Date.now() };
+  cache.set('outbox', [...cache.get('outbox', []), item]);
+  return item;
+}
+
+async function flushOutbox() {
+  const outbox = cache.get('outbox', []);
+  if (outbox.length === 0) return;
+
+  const stillWaiting = [];
+  let sent = 0;
+  let rejected = 0;
+
+  for (const item of outbox) {
+    try {
+      await api(`/chats/${item.chatId}/messages`, { method: 'POST', body: { body: item.body } });
+      sent++;
+    } catch (err) {
+      if (err.offline) stillWaiting.push(item);   // сеть снова пропала — оставляем в очереди
+      else rejected++;                             // чат недоступен или текст отклонён — не копим вечно
+    }
+  }
+
+  cache.set('outbox', stillWaiting);
+  if (sent) toast(`Отправлено сообщений: ${sent}`);
+  if (rejected) toast(`Не удалось отправить: ${rejected}`, 'error');
+  if (stillWaiting.length) setOffline(true);
+}
+
+/** Неотправленные сообщения для чата — показываем их в ленте с часиками. */
+const pendingFor = (chatId) =>
+  cache.get('outbox', [])
+    .filter((m) => m.chatId === chatId)
+    .map((m) => ({
+      id: m.id, chatId: m.chatId, senderId: state.me.id, kind: 'text',
+      body: m.body, meta: {}, createdAt: m.createdAt, pending: true,
+    }));
+
 async function handleSocket(msg) {
   if (msg.t?.startsWith('call:')) { await calls.handle(msg); return; }
 
@@ -205,7 +315,9 @@ async function handleSocket(msg) {
     case 'auth:ok':
       state.online = new Set(msg.online);
       setStatus('в сети');
+      setOffline(false);
       renderChats();
+      flushOutbox().then(() => { if (state.chat) refreshOpenChat(); });
       break;
 
     case 'auth:error':
@@ -248,6 +360,10 @@ async function handleSocket(msg) {
 
 function onIncomingMessage(message) {
   if (state.chat?.id === message.chatId) {
+    // Своё сообщение вернулось с сервера — убираем локальную копию с часиками.
+    if (message.senderId === state.me.id) {
+      state.messages = state.messages.filter((m) => !(m.pending && m.body === message.body));
+    }
     state.messages.push(message);
     renderMessages();
     scrollToBottom();
@@ -301,9 +417,12 @@ async function loadChats() {
     const data = await api('/chats');
     state.chats = data.chats;
     state.online = new Set(data.online);
+    cache.set('chats', data.chats);
+    setOffline(false);
     renderChats();
   } catch (err) {
-    if (String(err.message).includes('авторизация')) { localStorage.removeItem('mals.token'); location.reload(); }
+    if (err.offline) { setOffline(true); renderChats(); return; }
+    if (err.status === 401) { localStorage.removeItem('mals.token'); cache.clear(); location.reload(); }
   }
 }
 
@@ -371,11 +490,23 @@ $('#open-own-profile').addEventListener('click', () => goTab('profile'));
 
 /* ============================ экран чата ============================ */
 async function openChat(chatId) {
-  const data = await api(`/chats/${chatId}/messages`);
-  const peer = data.chat.kind === 'dm' ? data.members.find((m) => m.id !== state.me.id) : null;
+  let data;
+  try {
+    data = await api(`/chats/${chatId}/messages`);
+    cache.set(`chat:${chatId}`, data);
+    setOffline(false);
+  } catch (err) {
+    data = cache.get(`chat:${chatId}`);
+    if (!data) {
+      toast(err.offline ? 'Этот чат ещё не загружен — нужна сеть' : esc(err.message), 'error');
+      return;
+    }
+    setOffline(true);
+  }
 
+  const peer = data.chat.kind === 'dm' ? data.members.find((m) => m.id !== state.me.id) : null;
   state.chat = { ...data.chat, members: data.members, peer };
-  state.messages = data.messages;
+  state.messages = [...data.messages, ...pendingFor(chatId)];
 
   $('#screen-chat').hidden = false;
   renderChatHeader();
@@ -386,6 +517,18 @@ async function openChat(chatId) {
   api(`/chats/${chatId}/read`, { method: 'POST' }).then(loadChats).catch(() => {});
   wsSend({ t: 'read', chatId });
   history.pushState({ chat: chatId }, '', `#chat/${chatId}`);
+}
+
+/** Перечитывает открытый чат с сервера (после возврата в сеть). */
+async function refreshOpenChat() {
+  if (!state.chat) return;
+  try {
+    const data = await api(`/chats/${state.chat.id}/messages`);
+    cache.set(`chat:${state.chat.id}`, data);
+    state.messages = [...data.messages, ...pendingFor(state.chat.id)];
+    renderMessages();
+    scrollToBottom(false);
+  } catch { /* остаёмся на том, что уже показано */ }
 }
 
 function closeChat() {
@@ -451,8 +594,10 @@ function messageHtml(m, { first, last }) {
   const mine = m.senderId === state.me.id;
   const sender = state.chat.members.find((u) => u.id === m.senderId);
   const cls = `msg ${mine ? 'msg--out' : 'msg--in'} ${first ? 'msg--first' : ''} ${last ? 'msg--last' : ''}`;
-  const check = mine
-    ? '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>' : '';
+  const check = !mine ? ''
+    : m.pending
+      ? '<svg class="pending" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
+      : '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>';
   const meta = `<span class="msg__meta">${timeOf(m.createdAt)}${check}</span>`;
 
   if (m.kind === 'system') {
@@ -545,14 +690,25 @@ $('#composer-send').addEventListener('click', sendMessage);
 async function sendMessage() {
   const body = input.value.trim();
   if (!body || !state.chat) return;
+  const chatId = state.chat.id;
   input.value = '';
   autoGrow();
-  wsSend({ t: 'typing', chatId: state.chat.id, on: false });
+  wsSend({ t: 'typing', chatId, on: false });
+
   try {
-    await api(`/chats/${state.chat.id}/messages`, { method: 'POST', body: { body } });
+    await api(`/chats/${chatId}/messages`, { method: 'POST', body: { body } });
   } catch (err) {
-    toast(esc(err.message), 'error');
-    input.value = body;
+    if (!err.offline) { toast(esc(err.message), 'error'); input.value = body; return; }
+
+    // Сети нет: кладём в очередь и сразу показываем в ленте с часиками.
+    const item = queueMessage(chatId, body);
+    state.messages.push({
+      id: item.id, chatId, senderId: state.me.id, kind: 'text',
+      body, meta: {}, createdAt: item.createdAt, pending: true,
+    });
+    renderMessages();
+    scrollToBottom();
+    setOffline(true);
   }
 }
 
@@ -571,6 +727,10 @@ $('#call-video').addEventListener('click', () => startCall(true));
 
 function startCall(video) {
   if (!state.chat) return;
+  if (!navigator.onLine || state.ws?.readyState !== WebSocket.OPEN) {
+    toast('Звонок невозможен без подключения к сети', 'error');
+    return;
+  }
   if (!navigator.mediaDevices?.getUserMedia) {
     toast('Звонки требуют HTTPS или localhost', 'error');
     return;
@@ -593,13 +753,26 @@ $('#call-actions').addEventListener('click', (e) => {
 
 /* ============================ подарки ============================ */
 async function loadGifts() {
-  const data = await api('/gifts');
-  state.gifts = data.gifts;
-  state.me.balance = data.balance;
-  state.config.packs = data.packs;
-  state.config.payments = data.payments;
-  renderBalance();
-  return data;
+  try {
+    const data = await api('/gifts');
+    state.gifts = data.gifts;
+    state.me.balance = data.balance;
+    state.config.packs = data.packs;
+    state.config.payments = data.payments;
+    cache.set('gifts', { gifts: data.gifts, packs: data.packs, payments: data.payments });
+    setOffline(false);
+    renderBalance();
+    return data;
+  } catch (err) {
+    const cached = cache.get('gifts');
+    if (!err.offline || !cached) throw err;
+    // Каталог показываем из кэша, но подарить без сети нельзя — об этом скажет кнопка.
+    state.gifts = cached.gifts;
+    state.config.packs = cached.packs;
+    state.config.payments = cached.payments;
+    setOffline(true);
+    return { ...cached, balance: state.me?.balance ?? 0, offline: true };
+  }
 }
 
 function giftCellHtml(g, balance) {
@@ -614,10 +787,19 @@ function giftCellHtml(g, balance) {
 async function renderGiftStore() {
   const root = $('#gift-store');
   root.innerHTML = '<div class="empty"><span class="spinner" style="margin:0 auto"></span></div>';
-  const data = await loadGifts();
+
+  let data;
+  try {
+    data = await loadGifts();
+  } catch (err) {
+    root.innerHTML = `<div class="empty"><span class="empty__emoji">📴</span>
+      <b>${esc(err.message)}</b><p>Каталог откроется, когда появится связь</p></div>`;
+    return;
+  }
 
   root.innerHTML = `
     <div class="section">
+      ${data.offline ? '<div class="notice"><span>📴</span><span>Нет сети: каталог показан из памяти телефона. Отправка подарков и пополнение заработают, когда связь вернётся.</span></div>' : ''}
       <div class="notice">
         <span>⭐</span>
         <span>${data.payments === 'stripe'
@@ -668,7 +850,10 @@ async function pickRecipient(gift) {
 
 /** Шторка с каталогом внутри чата. */
 $('#open-gift').addEventListener('click', async () => {
-  const data = await loadGifts();
+  let data;
+  try { data = await loadGifts(); }
+  catch (err) { return toast(esc(err.message), 'error'); }
+
   const peer = state.chat?.peer ?? state.chat?.members.find((m) => m.id !== state.me.id);
   if (!peer) return toast('Некому дарить в этом чате', 'error');
 
@@ -750,8 +935,14 @@ function openGiftConfirm(gift, recipient) {
 
 /* ============================ кошелёк ============================ */
 async function openWallet() {
-  const data = await api('/wallet');
+  let data;
+  try {
+    data = await api('/wallet');
+  } catch (err) {
+    return toast(err.offline ? 'Пополнение недоступно без сети' : esc(err.message), 'error');
+  }
   state.me.balance = data.balance;
+  cache.set('me', state.me);
   renderBalance();
 
   sheet({
@@ -823,9 +1014,26 @@ function renderMeAvatar() {
 
 /* ============================ профиль ============================ */
 async function renderOwnProfile() {
-  const me = await api(`/users/${state.me.id}`);
-  const wallet = await api('/wallet');
-  state.me.balance = wallet.balance;
+  let me, balance;
+  try {
+    me = await api(`/users/${state.me.id}`);
+    const wallet = await api('/wallet');
+    balance = wallet.balance;
+    state.me.balance = balance;
+    cache.set('profile', me);
+    cache.set('me', state.me);
+    setOffline(false);
+  } catch (err) {
+    me = cache.get('profile');
+    balance = state.me?.balance ?? 0;
+    if (!me) {
+      $('#profile-body').innerHTML = `<div class="empty"><span class="empty__emoji">📴</span>
+        <b>${esc(err.message)}</b><p>Профиль откроется, когда появится связь</p></div>`;
+      return;
+    }
+    setOffline(true);
+  }
+  const wallet = { balance };
   renderBalance();
 
   $('#profile-body').innerHTML = `
@@ -983,7 +1191,14 @@ function openNewChat() {
       const results = $('#user-results', node);
 
       const search = async (term = '') => {
-        const users = await api(`/users?q=${encodeURIComponent(term)}`);
+        let users;
+        try {
+          users = await api(`/users?q=${encodeURIComponent(term)}`);
+        } catch (err) {
+          results.innerHTML = `<div class="empty"><span class="empty__emoji">📴</span>
+            <b>${esc(err.message)}</b><p>Поиск людей работает только при связи с сервером</p></div>`;
+          return;
+        }
         results.innerHTML = users.length ? users.map((u) => `
           <div class="row" data-user="${u.id}">
             ${avatarHtml(u)}
@@ -1087,16 +1302,43 @@ async function enterApp() {
   $('#screen-auth').hidden = true;
   $('#screen-app').hidden = false;
 
-  state.config = { ...state.config, ...(await api('/config')) };
-  calls.iceServers = state.config.iceServers;
-
-  state.me = await api('/me');
-  renderBalance();
-  renderMeAvatar();
-  await loadChats();
-  connect();
+  // Сначала поднимаем последнее известное состояние — приложение открывается мгновенно и без сети.
+  const cachedMe = cache.get('me');
+  const cachedChats = cache.get('chats');
+  const cachedConfig = cache.get('config');
+  if (cachedConfig) state.config = { ...state.config, ...cachedConfig };
+  if (cachedMe) {
+    state.me = cachedMe;
+    state.chats = cachedChats || [];
+    renderBalance();
+    renderMeAvatar();
+    renderChats();
+  }
   goTab('chats');
-  handlePaymentReturn();
+
+  try {
+    const config = await api('/config');
+    state.config = { ...state.config, ...config };
+    cache.set('config', config);
+    calls.iceServers = state.config.iceServers;
+
+    state.me = await api('/me');
+    cache.set('me', state.me);
+    renderBalance();
+    renderMeAvatar();
+
+    await loadChats();
+    connect();
+    setOffline(false);
+    await flushOutbox();
+    handlePaymentReturn();
+  } catch (err) {
+    // Без сети остаёмся в приложении на кэше; при 401 токен протух — уходим на вход.
+    if (!err.offline) throw err;
+    if (!state.me) throw err;
+    setOffline(true);
+    calls.iceServers = state.config.iceServers;
+  }
 }
 
 /** Возврат со страницы оплаты Stripe: дожидаемся вебхука и показываем результат. */
@@ -1136,9 +1378,18 @@ async function boot() {
   }
   try {
     await enterApp();
-  } catch {
+  } catch (err) {
+    if (err.offline) {
+      // Сети нет и кэша тоже — показываем оболочку с честной причиной.
+      $('#screen-app').hidden = true;
+      $('#screen-auth').hidden = false;
+      setOffline(true, 'Нет сети — войти можно будет при подключении');
+      return;
+    }
     localStorage.removeItem('mals.token');
+    cache.clear();
     state.token = '';
+    $('#screen-app').hidden = true;
     $('#screen-auth').hidden = false;
   }
 }

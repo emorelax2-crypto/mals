@@ -1,9 +1,10 @@
 /* Сервис-воркер: офлайн-оболочка приложения.
    API и WebSocket никогда не кэшируются — только статика. */
-const CACHE = 'mals-v1';
+const CACHE = 'mals-v2';
 const SHELL = [
   '/', '/index.html', '/styles.css', '/app.js', '/call.js',
   '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png',
+  '/icons/apple-touch-icon.png',
 ];
 
 self.addEventListener('install', (e) => {
