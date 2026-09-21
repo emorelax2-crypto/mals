@@ -182,7 +182,7 @@ class Cast:
 
 SCORE = Var("Очки", "var-ochki")
 LIVES = Var("Жизни", "var-zhizni", 5)
-TIME = Var("Время", "var-vremya")
+TIME = Var("Время", "var-vremya", 60)
 VARS = [SCORE, LIVES, TIME]
 
 BC = {"Старт": "bc-start", "Конец": "bc-end"}

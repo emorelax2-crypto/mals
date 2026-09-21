@@ -1,0 +1,409 @@
+<title>Пейнтбол Арена</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Golos+Text:wght@400;500;700&display=swap">
+<style>
+  :root{
+    --night:#0d1630;
+    --panel:#16224a;
+    --panel-2:#1d2c5c;
+    --line:#2f4182;
+    --turf:#2f5b3a;
+    --ink:#e9efff;
+    --muted:#8fa2d4;
+    --pink:#ff5ea8;
+    --cyan:#59e3ff;
+    --lime:#9cff6b;
+    --sun:#ffe14d;
+    --display:"Russo One","Arial Black",system-ui,sans-serif;
+    --body:"Golos Text","Segoe UI",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:var(--night);
+    color:var(--ink);
+    font-family:var(--body);
+    font-size:15px;
+    line-height:1.55;
+    background-image:
+      linear-gradient(transparent 95%,rgba(47,65,130,.35) 95%),
+      linear-gradient(90deg,transparent 95%,rgba(47,65,130,.35) 95%);
+    background-size:44px 44px;
+  }
+  .wrap{max-width:720px;margin:0 auto;padding-inline:16px;padding-block:28px 40px;display:flex;flex-direction:column;gap:22px}
+
+  .masthead{display:flex;align-items:center;gap:14px}
+  .mark{flex:0 0 auto;width:46px;height:46px}
+  h1{
+    font-family:var(--display);
+    font-size:clamp(30px,7vw,42px);
+    letter-spacing:.02em;
+    margin:0;
+    line-height:1;
+    text-wrap:balance;
+  }
+  .tagline{margin:6px 0 0;color:var(--muted);font-size:14px}
+
+  .cabinet{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:14px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    box-shadow:0 18px 50px rgba(0,0,0,.45);
+  }
+  .scoreboard{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .tile{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:9px 12px;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    min-height:62px;
+    justify-content:center;
+  }
+  .label{
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+  .value{
+    font-family:var(--display);
+    font-size:26px;
+    line-height:1.1;
+    font-variant-numeric:tabular-nums;
+  }
+  .value.score{color:var(--sun)}
+  .value.time{color:var(--cyan)}
+  .pips{display:flex;gap:5px;align-items:center;height:29px}
+  .pip{width:13px;height:13px;border-radius:50%;background:var(--pink);box-shadow:0 0 8px rgba(255,94,168,.55)}
+  .pip.gone{background:#2b3a6b;box-shadow:none}
+
+  .screen{
+    position:relative;
+    aspect-ratio:4/3;
+    max-width:100%;
+    border-radius:12px;
+    overflow:hidden;
+    background:var(--turf);
+    border:1px solid var(--line);
+  }
+  canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+  .overlay{position:absolute;inset:0;display:grid;place-items:center}
+  .overlay[hidden]{display:none!important}
+  .poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(13,22,48,.42),rgba(13,22,48,.76))}
+  .overlay.end .poster{display:none}
+  .overlay.end .scrim{background:rgba(13,22,48,.55)}
+  .panelbox{
+    position:relative;
+    text-align:center;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:12px;
+    padding:18px;
+  }
+  .status{margin:0;color:var(--ink);font-size:15px}
+  .final{margin:0;font-family:var(--display);font-size:clamp(22px,5vw,30px);color:var(--sun)}
+
+  .btn{
+    font-family:var(--display);
+    font-size:17px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--night);
+    background:var(--lime);
+    border:none;
+    border-radius:10px;
+    padding:11px 30px;
+    cursor:pointer;
+  }
+  .btn:disabled{background:#3a4a7d;color:#8fa2d4;cursor:progress}
+  .btn:focus-visible,.ghost:focus-visible{outline:3px solid var(--cyan);outline-offset:3px}
+  .ghost{
+    font-family:var(--body);
+    font-weight:600;
+    font-size:14px;
+    letter-spacing:0;
+    text-transform:none;
+    color:var(--ink);
+    background:transparent;
+    border:1px solid var(--line);
+    border-radius:9px;
+    padding:8px 16px;
+    cursor:pointer;
+  }
+  .ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+  .controlbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .hint{margin:0;color:var(--muted);font-size:13px;flex:1 1 220px}
+
+  .legend{display:flex;flex-wrap:wrap;gap:10px}
+  .row{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:11px;
+    padding:9px 13px;
+    font-size:13.5px;
+    color:var(--muted);
+  }
+  kbd{
+    font-family:var(--body);
+    font-weight:700;
+    font-size:12px;
+    color:var(--ink);
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-bottom-width:3px;
+    border-radius:6px;
+    padding:3px 8px;
+    min-width:26px;
+    text-align:center;
+    display:inline-block;
+  }
+
+  .rules{
+    border-left:3px solid var(--pink);
+    padding:2px 0 2px 14px;
+    color:var(--muted);
+    font-size:14px;
+  }
+  .rules b{color:var(--ink);font-weight:600}
+
+  .publish h2{
+    font-family:var(--display);
+    font-size:17px;
+    letter-spacing:.03em;
+    margin:0 0 10px;
+    color:var(--ink);
+  }
+  ol{margin:0;padding-left:20px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:6px}
+  ol b{color:var(--ink);font-weight:600}
+  a{color:var(--cyan)}
+  .foot{color:var(--muted);font-size:12.5px;margin:0;border-top:1px solid var(--line);padding-top:14px}
+
+  @media (max-width:430px){
+    .scoreboard{grid-template-columns:1fr 1fr}
+    .tile:last-child{grid-column:1/-1}
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .btn:not(:disabled){transition:transform .12s ease,filter .12s ease}
+    .btn:not(:disabled):hover{transform:translateY(-1px);filter:brightness(1.07)}
+  }
+</style>
+
+<main class="wrap">
+  <header class="masthead">
+    <svg class="mark" viewBox="0 0 64 64" role="img" aria-label="Клякса краски">
+      <path d="M32 5c7 0 8 9 15 10s12-2 13 5-8 8-9 14 6 11 0 16-10-4-17-3-10 9-16 5-1-11-6-15-12-3-11-10 10-5 13-11S25 5 32 5z" fill="#ff5ea8"/>
+      <circle cx="55" cy="13" r="3.4" fill="#ff5ea8"/>
+      <circle cx="9" cy="50" r="2.8" fill="#59e3ff"/>
+      <circle cx="32" cy="33" r="7" fill="#0d1630"/>
+    </svg>
+    <div>
+      <h1>Пейнтбол</h1>
+      <p class="tagline">Проект Scratch 3 — запускается прямо здесь, без аккаунта и установки</p>
+    </div>
+  </header>
+
+  <section class="cabinet">
+    <div class="scoreboard">
+      <div class="tile"><span class="label">Очки</span><span class="value score" id="score">0</span></div>
+      <div class="tile"><span class="label">Жизни</span><span class="pips" id="pips"></span></div>
+      <div class="tile"><span class="label">Время</span><span class="value time" id="time">60</span></div>
+    </div>
+
+    <div class="screen">
+      <canvas id="stage" width="480" height="360"></canvas>
+      <div class="overlay" id="overlay">
+        <img class="poster" id="poster" src="data:image/png;base64,{{POSTER_B64}}" alt="Кадр игры: турель у нижнего края арены и боты, спускающиеся сверху">
+        <div class="scrim"></div>
+        <div class="panelbox">
+          <p class="final" id="final" hidden></p>
+          <p class="status" id="status">Загружаем движок Scratch…</p>
+          <button class="btn" id="start" disabled>Старт</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="controlbar">
+      <button class="ghost" id="restart">Заново</button>
+      <button class="ghost" id="stop">Стоп</button>
+      <p class="hint">Клик по арене — и можно целиться мышью.</p>
+    </div>
+  </section>
+
+  <section class="legend">
+    <span class="row"><kbd>мышь</kbd> прицел</span>
+    <span class="row"><kbd>пробел</kbd> или <kbd>клик</kbd> выстрел</span>
+    <span class="row"><kbd>←</kbd><kbd>→</kbd> или <kbd>A</kbd><kbd>D</kbd> турель</span>
+    <span class="row"><kbd>палец</kbd> на телефоне: веди — целится и стреляет</span>
+  </section>
+
+  <p class="rules">Боты спускаются сверху: попадание — <b>+1 очко</b>, прорыв вниз — <b>минус жизнь</b>.
+  Партия длится <b>60 секунд</b> или до потери всех пяти жизней, а с ростом счёта боты ускоряются.</p>
+
+  <section class="publish">
+    <h2>Как получить ссылку на scratch.mit.edu</h2>
+    <ol>
+      <li>Возьми файл <b>paintball.sb3</b> — он лежит в нашем чате и в репозитории.</li>
+      <li>Открой <a href="https://scratch.mit.edu/projects/editor/" target="_blank" rel="noopener">редактор Scratch</a> под своим аккаунтом.</li>
+      <li><b>Файл → Загрузить из компьютера</b>, выбрать <b>paintball.sb3</b>.</li>
+      <li>Нажать <b>Поделиться</b> — в адресной строке появится ссылка вида <b>scratch.mit.edu/projects/…</b></li>
+    </ol>
+  </section>
+
+  <p class="foot">Страница запускает тот же файл проекта в официальном движке Scratch (scratch-vm и scratch-render),
+  поэтому игра здесь ведёт себя ровно так же, как на сайте Scratch. Переменные вынесены на табло сверху:
+  в браузерном движке нет редакторских окошек со значениями.</p>
+</main>
+
+<script src="vendor/scratch-storage.js"></script>
+<script src="vendor/scratch-render.js"></script>
+<script src="vendor/scratch-vm.js"></script>
+<script>
+  const SB3_B64 = "{{SB3_B64}}";
+  const VAR = { score: "var-ochki", lives: "var-zhizni", time: "var-vremya" };
+  const LIVES_TOTAL = 5;
+
+  const el = id => document.getElementById(id);
+  const canvas = el("stage"), overlay = el("overlay"), statusLine = el("status");
+  const startBtn = el("start"), finalLine = el("final"), poster = el("poster");
+  let vm = null, playing = false, guardUntil = 0, pointerDown = false;
+
+  const pips = el("pips");
+  for (let i = 0; i < LIVES_TOTAL; i++) {
+    const d = document.createElement("span");
+    d.className = "pip";
+    pips.appendChild(d);
+  }
+  const drawPips = n => [...pips.children].forEach((d, i) => d.classList.toggle("gone", i >= n));
+  drawPips(LIVES_TOTAL);
+
+  const bytes = b64 => {
+    const raw = atob(b64), out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  };
+  const readVar = id => {
+    const stage = vm && vm.runtime.getTargetForStage();
+    const v = stage && stage.lookupVariableById(id);
+    return v ? Number(v.value) : 0;
+  };
+
+  window.addEventListener("load", async () => {
+    try {
+      if (!window.VirtualMachine || !window.ScratchRender || !window.ScratchStorage) {
+        throw new Error("не загрузились файлы движка");
+      }
+      vm = new window.VirtualMachine();
+      vm.attachStorage(new window.ScratchStorage.ScratchStorage());
+      const renderer = new window.ScratchRender(canvas);
+      vm.attachRenderer(renderer);
+      await vm.loadProject(bytes(SB3_B64));
+      vm.start();
+      const tick = () => { renderer.draw(); requestAnimationFrame(tick); };
+      tick();
+      statusLine.textContent = "Готово — жми «Старт»";
+      startBtn.disabled = false;
+      startBtn.focus();
+    } catch (err) {
+      statusLine.textContent = "Движок не запустился: " + err.message + ". Обнови страницу.";
+    }
+  });
+
+  const beginRound = () => {
+    if (!vm) return;
+    vm.greenFlag();
+    playing = true;
+    guardUntil = Date.now() + 600;           // пока сцена не выставила таймер, финал не ловим
+    overlay.hidden = true;
+    overlay.classList.remove("end");
+    statusLine.hidden = false;
+    finalLine.hidden = true;
+    poster.hidden = true;
+    canvas.focus();
+  };
+
+  const points = n => {
+    const t = n % 100, o = n % 10;
+    if (t > 10 && t < 15) return "очков";
+    if (o === 1) return "очко";
+    if (o > 1 && o < 5) return "очка";
+    return "очков";
+  };
+
+  const endRound = score => {
+    playing = false;
+    finalLine.textContent = "Партия окончена — " + score + " " + points(score);
+    finalLine.hidden = false;
+    statusLine.hidden = true;
+    startBtn.textContent = "Ещё раз";
+    startBtn.disabled = false;
+    overlay.classList.add("end");
+    overlay.hidden = false;
+  };
+
+  startBtn.addEventListener("click", beginRound);
+  el("restart").addEventListener("click", beginRound);
+  el("stop").addEventListener("click", () => {
+    if (!vm) return;
+    vm.stopAll();
+    playing = false;
+    statusLine.hidden = false;
+    statusLine.textContent = "Пауза — нажми «Старт», чтобы начать заново";
+    finalLine.hidden = true;
+    startBtn.textContent = "Старт";
+    overlay.classList.add("end");
+    overlay.hidden = false;
+  });
+
+  // табло и отслеживание конца партии
+  setInterval(() => {
+    if (!vm) return;
+    el("score").textContent = readVar(VAR.score);
+    el("time").textContent = readVar(VAR.time);
+    drawPips(Math.max(0, readVar(VAR.lives)));
+    if (playing && Date.now() > guardUntil && (readVar(VAR.time) < 1 || readVar(VAR.lives) < 1)) {
+      endRound(readVar(VAR.score));
+    }
+  }, 120);
+
+  // мышь и палец
+  const sendMouse = (e, down) => {
+    if (!vm) return;
+    const r = canvas.getBoundingClientRect();
+    vm.postIOData("mouse", {
+      x: e.clientX - r.left, y: e.clientY - r.top,
+      canvasWidth: r.width, canvasHeight: r.height, isDown: down,
+    });
+  };
+  canvas.addEventListener("pointerdown", e => {
+    pointerDown = true;
+    canvas.setPointerCapture(e.pointerId);
+    sendMouse(e, true);
+    e.preventDefault();
+  });
+  canvas.addEventListener("pointermove", e => sendMouse(e, pointerDown));
+  window.addEventListener("pointerup", e => { pointerDown = false; sendMouse(e, false); });
+
+  // клавиатура
+  const HELD = [" ", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+  window.addEventListener("keydown", e => {
+    if (!vm || !playing) return;
+    if (HELD.includes(e.key)) e.preventDefault();
+    vm.postIOData("keyboard", { key: e.key, isDown: true });
+  });
+  window.addEventListener("keyup", e => {
+    if (!vm) return;
+    vm.postIOData("keyboard", { key: e.key, isDown: false });
+  });
+</script>

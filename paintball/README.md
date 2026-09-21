@@ -5,6 +5,25 @@
 
 ![Игровой процесс](screenshots/gameplay.png)
 
+## Играть в браузере без аккаунта
+
+В папке `web/` лежит самодостаточная страница-«автомат»: она загружает этот же
+`paintball.sb3` в официальный движок Scratch (`scratch-vm` + `scratch-render`),
+рисует табло очков/жизней/времени и принимает мышь, клавиатуру и касания.
+
+```bash
+cd web
+mkdir -p vendor                       # сборки движка не хранятся в репозитории
+npm install scratch-vm scratch-render scratch-storage
+cp node_modules/scratch-vm/dist/web/scratch-vm.js            vendor/scratch-vm.js
+cp node_modules/scratch-render/dist/web/scratch-render.min.js vendor/scratch-render.js
+cp node_modules/scratch-storage/dist/web/scratch-storage.min.js vendor/scratch-storage.js
+python3 build_web.py                  # вшивает .sb3 и заставку в index.html
+```
+
+Дальше `index.html` открывается прямо в браузере. Редактировать нужно
+`web/page.template.html` — `index.html` собирается из него.
+
 ## Как открыть и опубликовать на scratch.mit.edu
 
 1. Скачать `paintball.sb3`.
