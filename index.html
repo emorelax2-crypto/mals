@@ -15,6 +15,8 @@
 <meta name="description" content="Раннер в стиле динозаврика из Chrome с твоими фотографиями">
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  /* кнопки, поля и таблицы не наследуют семейство шрифта сами */
+  button,input,table{font-family:inherit}
   html,body{
     width:100%;height:100%;overflow:hidden;position:fixed;overscroll-behavior:none;
     background:#f7f7f7;touch-action:none;
@@ -42,7 +44,7 @@
 
   .btn{
     -webkit-appearance:none;appearance:none;border:2px solid #535353;background:rgba(255,255,255,.72);
-    color:#535353;border-radius:999px;font:600 14px/1 inherit;padding:9px 13px;
+    color:#535353;border-radius:999px;font-weight:600;font-size:14px;line-height:1;padding:9px 13px;
     cursor:pointer;pointer-events:auto;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
     transition:transform .08s ease, background .2s, color .2s, border-color .2s;
     white-space:nowrap;
@@ -63,12 +65,12 @@
   @keyframes fade{from{opacity:0}to{opacity:1}}
   .overlay.hidden{display:none}
   .title{
-    font:800 clamp(22px,6.4vmin,40px)/1.1 inherit;letter-spacing:.01em;text-wrap:balance;
+    font-weight:800;font-size:clamp(22px,6.4vmin,40px);line-height:1.1;letter-spacing:.01em;text-wrap:balance;
     text-shadow:0 2px 0 rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.12);
   }
   body.night .title{text-shadow:0 2px 0 rgba(0,0,0,.4), 0 8px 28px rgba(120,160,255,.28)}
-  .sub{font:600 clamp(14px,3.9vmin,20px)/1.45 inherit;opacity:.9}
-  .tip{font:500 clamp(11px,3vmin,14px)/1.5 inherit;opacity:.6;max-width:28em}
+  .sub{font-weight:600;font-size:clamp(14px,3.9vmin,20px);line-height:1.45;opacity:.9}
+  .tip{font-weight:500;font-size:clamp(11px,3vmin,14px);line-height:1.5;opacity:.6;max-width:28em}
   .stats{font:700 clamp(14px,4vmin,20px)/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.06em}
   .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center}
   .btn.big{font-size:clamp(15px,4vmin,19px);padding:13px 24px;background:#535353;color:#f7f7f7}
@@ -90,7 +92,7 @@
   .chip{
     -webkit-appearance:none;appearance:none;cursor:pointer;pointer-events:auto;
     border:2px solid currentColor;border-radius:13px;background:rgba(255,255,255,.5);
-    color:inherit;padding:8px 9px;font:700 clamp(11px,3vmin,13px)/1.15 inherit;
+    color:inherit;padding:8px 9px;font-weight:700;font-size:clamp(11px,3vmin,13px);line-height:1.15;
     display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;flex:1 1 0;max-width:110px;
     transition:transform .1s, background .18s, border-color .18s;
   }
@@ -101,8 +103,30 @@
   .chip[aria-pressed="true"]{background:#2e9b4f;border-color:#2e9b4f;color:#fff;box-shadow:0 4px 14px rgba(46,155,79,.35)}
   body.night .chip[aria-pressed="true"]{background:#49c46f;border-color:#49c46f;color:#07121f}
   .chip[aria-pressed="true"] .sub{opacity:.85}
-  .rowLabel{font:700 clamp(10px,2.7vmin,12px)/1 inherit;letter-spacing:.14em;text-transform:uppercase;opacity:.5}
+  .rowLabel{font-weight:700;font-size:clamp(10px,2.7vmin,12px);line-height:1;letter-spacing:.14em;text-transform:uppercase;opacity:.5}
 
+  #coins{font-weight:800;font-size:clamp(12px,3.3vmin,16px);line-height:1.2;letter-spacing:.04em;
+         text-align:right;color:#b8860b}
+  body.night #coins{color:#ffd76a}
+  #btnPause{
+    position:absolute;z-index:30;display:none;
+    left:calc(env(safe-area-inset-left) + 16px);
+    bottom:calc(env(safe-area-inset-bottom) + 24px);
+    width:56px;height:56px;padding:0;border-radius:50%;font-size:21px;
+    align-items:center;justify-content:center;
+  }
+  #btnPause.show{display:flex}
+  .shopRow{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;width:min(94vw,410px)}
+  .shopBtn{position:relative;flex:1 1 118px;max-width:132px;flex-direction:column;gap:3px;
+           padding:9px 8px;font-weight:700;font-size:clamp(11px,3vmin,13px);line-height:1.2}
+  .shopBtn .em{font-size:1.5em;line-height:1}
+  .shopBtn .price{font-weight:800;font-size:.82em;opacity:.75}
+  .shopBtn[data-own="1"] .price{color:#2e9b4f;opacity:1}
+  body.night .shopBtn[data-own="1"] .price{color:#7ee6a0}
+  .shopBtn[data-own="0"][data-can="0"]{opacity:.45}
+  .shopBtn[aria-pressed="true"]{background:#2e9b4f;border-color:#2e9b4f;color:#fff}
+  body.night .shopBtn[aria-pressed="true"]{background:#49c46f;border-color:#49c46f;color:#07121f}
+  .shopBtn[aria-pressed="true"] .price{color:#fff;opacity:.9}
   #hearts{font-size:clamp(14px,3.8vmin,19px);line-height:1.1;letter-spacing:.06em;text-align:right;min-height:1.1em}
   #attempts{font:700 clamp(10px,2.8vmin,13px)/1.4 ui-monospace,Menlo,monospace;letter-spacing:.08em;
             text-align:right;opacity:.55;color:#535353}
@@ -115,11 +139,11 @@
     -webkit-appearance:none;appearance:none;width:100%;box-sizing:border-box;
     border:2px solid currentColor;background:rgba(255,255,255,.82);color:#3a3a3e;
     border-radius:14px;padding:13px 16px;text-align:center;letter-spacing:.04em;
-    font:700 clamp(16px,4.4vmin,20px)/1.2 inherit;
+    font-weight:700;font-size:max(16px, clamp(16px,4.4vmin,20px));line-height:1.2;
   }
   body.night #nickInput{background:rgba(16,22,46,.75);color:#e6e8f2}
   #nickInput:focus{outline:3px solid rgba(46,155,79,.55);outline-offset:2px}
-  .err{font:600 12px/1.4 inherit;color:#c0392b;min-height:1.3em}
+  .err{font-weight:600;font-size:12px;line-height:1.4;color:#c0392b;min-height:1.3em}
   body.night .err{color:#ff8f80}
 
   .board{
@@ -127,7 +151,7 @@
     border:2px solid currentColor;border-radius:16px;background:rgba(255,255,255,.62);
   }
   body.night .board{background:rgba(10,16,38,.66)}
-  .board table{width:100%;border-collapse:collapse;font:600 clamp(13px,3.6vmin,16px)/1.2 inherit}
+  .board table{width:100%;border-collapse:collapse;font-weight:600;font-size:clamp(13px,3.6vmin,16px);line-height:1.2}
   .board th,.board td{padding:10px 12px;text-align:left}
   .board th{font-size:.78em;text-transform:uppercase;letter-spacing:.08em;opacity:.65}
   .board td.pl{width:2.4em;opacity:.7;font-variant-numeric:tabular-nums}
@@ -141,7 +165,7 @@
   .bonusBtn{font-size:13px;padding:10px 14px}
   .bonusBtn[aria-pressed="true"]{background:#2e9b4f;border-color:#2e9b4f;color:#fff}
   body.night .bonusBtn[aria-pressed="true"]{background:#49c46f;border-color:#49c46f;color:#07121f}
-  .lead{font:700 clamp(13px,3.5vmin,16px)/1.4 inherit;color:#2e9b4f}
+  .lead{font-weight:700;font-size:clamp(13px,3.5vmin,16px);line-height:1.4;color:#2e9b4f}
   body.night .lead{color:#7ee6a0}
 
   #btnBonus{
@@ -167,12 +191,28 @@
   </div>
   <div class="right">
     <div id="score"><span class="hi">HI 00000</span>&nbsp;&nbsp;00000</div>
+    <div id="coins"></div>
     <div id="hearts"></div>
     <div id="attempts"></div>
   </div>
 </div>
 
 <button class="btn" id="btnBonus" aria-label="Использовать бонус"><span class="ic">🚀</span><span class="left"></span></button>
+<button class="btn" id="btnPause" aria-label="Пауза">⏸</button>
+
+<div class="overlay hidden" id="pauseScreen">
+  <div class="title">ПАУЗА</div>
+  <div class="rowLabel">Режим</div>
+  <div class="pickRow" id="modePick2"></div>
+  <div class="rowLabel">Сложность</div>
+  <div class="pickRow" id="diffPick2"></div>
+  <div class="tip">Смена режима или сложности начнёт забег заново</div>
+  <button class="btn play" id="btnResume">▶ ПРОДОЛЖИТЬ</button>
+  <div class="row">
+    <button class="btn" id="btnRestart">↻ Заново</button>
+    <button class="btn" id="btnMenu">☰ В меню</button>
+  </div>
+</div>
 
 <div class="overlay" id="nickScreen">
   <div class="title">СЕРГЕЙ ЖИРНЫЙ</div>
@@ -204,12 +244,8 @@
   <div class="tip" id="modeTip"></div>
   <div class="tip" id="ctrlTip"></div>
   <div class="lead" id="leadBox" hidden></div>
-  <div class="bonusRow" id="bonusPick" hidden>
-    <button class="btn bonusBtn" data-bonus="jet"  aria-pressed="false">🚀 Джетпак</button>
-    <button class="btn bonusBtn" data-bonus="high" aria-pressed="false">🦘 Выс. прыжок</button>
-    <button class="btn bonusBtn" data-bonus="fast" aria-pressed="false">⚡ Скорость</button>
-    <button class="btn bonusBtn" data-bonus="dbl"  aria-pressed="false">🔁 Двойной</button>
-    <button class="btn bonusBtn" data-bonus="life" aria-pressed="false">❤️ 3 жизни</button>
+  <div class="shopRow" id="bonusPick" hidden>
+    <!-- заполняется из JS: иконка, название и цена или «куплено» -->
   </div>
   <div class="row">
     <button class="btn" id="btnBoard1">🏆 Рейтинг</button>
@@ -260,6 +296,7 @@ const LS = {
 const K_HI = "photorunner.hi", K_IMG = "photorunner.photo", K_SND = "photorunner.sound";
 const K_NICK = "photorunner.nick", K_BONUS = "photorunner.bonus";
 const K_MODE = "photorunner.mode", K_DIFF = "photorunner.diff";
+const K_COINS = "photorunner.coins", K_BANK = "photorunner.bank", K_OWNED = "photorunner.owned";
 const boardKey = m => "photorunner.board." + m;   // у каждого режима свой рейтинг
 const hiKey    = m => "photorunner.hi." + m;
 
@@ -405,6 +442,43 @@ const Board = {
   isFirst(name, m){ return this.rank(name, m) === 1; }
 };
 
+/* ---------- Монеты и магазин способностей ----------
+   1000 очков = 1 монета, остаток копится между забегами. Способность стоит 5 монет
+   и покупается навсегда. Первое место в рейтинге открывает все способности бесплатно. */
+const COIN_PER = 1000, ABILITY_COST = 5;
+let coins = parseInt(LS.get(K_COINS, "0"), 10) || 0;
+let bank  = parseInt(LS.get(K_BANK,  "0"), 10) || 0;
+let owned = (() => {
+  try { const v = JSON.parse(LS.get(K_OWNED, "[]")); return Array.isArray(v) ? v : []; }
+  catch(e){ return []; }
+})();
+
+function saveWallet(){
+  LS.set(K_COINS, String(coins));
+  LS.set(K_BANK,  String(bank));
+  LS.set(K_OWNED, JSON.stringify(owned));
+}
+/** Начисляет монеты за набранные очки. Возвращает, сколько монет прибавилось. */
+function addEarnings(sc){
+  bank += Math.max(0, Math.floor(sc));
+  const got = Math.floor(bank / COIN_PER);
+  bank -= got * COIN_PER;
+  coins += got;
+  saveWallet();
+  return got;
+}
+const isLeader = () => Board.isFirst(nick);
+/** Способность доступна, если куплена или если игрок на 1 месте. */
+const hasAbility = k => owned.indexOf(k) >= 0 || isLeader();
+function buyAbility(k){
+  if (!BONUSES[k] || owned.indexOf(k) >= 0) return false;
+  if (coins < ABILITY_COST) return false;
+  coins -= ABILITY_COST;
+  owned.push(k);
+  saveWallet();
+  return true;
+}
+
 /* ---------- Режимы и сложность ---------- */
 const MODES = {
   run: { icon: "🏃", name: "Раннер",   tip: "классика: прыгай через кактусы" },
@@ -511,7 +585,7 @@ const HOLD_MAX = 0.34;        // сек, максимум «удержания»
 const LIFT = 1.48;            // центр круга поднят над землёй на LIFT*R — под ним ноги
 
 /* ---------- Состояние ---------- */
-const MENU = 0, PLAY = 1, OVER = 2;
+const MENU = 0, PLAY = 1, OVER = 2, PAUSED = 3;
 let state = MENU;
 
 let py = 0, vy = 0, onGround = true, holding = false, holdT = 0;
@@ -645,7 +719,7 @@ function startGame(){
   physics();
   reset();
   // бонус даётся только лидеру и только один раз за забег
-  bonus.armed = Board.isFirst(nick);
+  bonus.armed = hasAbility(bonus.kind);
   bonus.used = false; bonus.active = false; bonus.left = 0; bonus.thrust = false;
   // «3 жизни» не включают кнопкой — они выдаются сразу на весь забег
   if (bonus.armed && bonus.kind === "life"){ lives = 3; bonus.used = true; }
@@ -668,8 +742,11 @@ function gameOver(){
   if (isRec){ hi = sc; LS.set(hiKey(mode), String(hi)); }
   const improved = Board.submit(nick, sc);
   const place = Board.rank(nick);
+  let got = addEarnings(sc);
+  if (place === 1){ coins += 1; got += 1; saveWallet(); }   // лидеру — монета за забег
   overStats.innerHTML = "СЧЁТ " + pad5(sc) + "<br>РЕКОРД " + pad5(hi) +
-    (place ? "<br>МЕСТО " + place : "");
+    (place ? "<br>МЕСТО " + place : "") +
+    (got ? '<br><span style="color:#b8860b">+' + got + " 🪙</span>" : "");
   newRecEl.hidden = !(isRec || improved);
   newRecEl.innerHTML = place === 1
     ? "🏆 Ты на 1 месте! Бонус разблокирован"
@@ -1308,46 +1385,64 @@ const modePick   = document.getElementById("modePick");
 const diffPick   = document.getElementById("diffPick");
 const modeTip    = document.getElementById("modeTip");
 const heartsEl   = document.getElementById("hearts");
+const coinsEl    = document.getElementById("coins");
 const attemptsEl = document.getElementById("attempts");
 
 /* --- чипы выбора режима и сложности --- */
-function buildPickers(){
-  modePick.innerHTML = Object.keys(MODES).map(k =>
+const modePick2 = document.getElementById("modePick2");
+const diffPick2 = document.getElementById("diffPick2");
+
+/** Собирает чипы режима и сложности. inGame=true — смена начинает забег заново. */
+function buildPickers(mp, dp, inGame){
+  mp = mp || modePick; dp = dp || diffPick;
+  mp.innerHTML = Object.keys(MODES).map(k =>
     '<button class="chip" data-mode="' + k + '" aria-pressed="false">' +
     '<span class="em">' + MODES[k].icon + '</span>' + MODES[k].name + "</button>").join("");
-  diffPick.innerHTML = DIFFS.map((d, i) =>
+  dp.innerHTML = DIFFS.map((d, i) =>
     '<button class="chip" data-diff="' + i + '" aria-pressed="false">' +
     '<span class="em">' + d.icon + '</span>' + d.name + "</button>").join("");
-  for (const b of modePick.children)
-    b.addEventListener("click", e => { e.stopPropagation(); setMode(b.dataset.mode); });
-  for (const b of diffPick.children)
-    b.addEventListener("click", e => { e.stopPropagation(); setDiff(+b.dataset.diff); });
+  for (const b of mp.children)
+    b.addEventListener("click", e => { e.stopPropagation(); setMode(b.dataset.mode, inGame); });
+  for (const b of dp.children)
+    b.addEventListener("click", e => { e.stopPropagation(); setDiff(+b.dataset.diff, inGame); });
 }
 const CTRL_TIP = {
   run: "Тап — прыжок · Долгое нажатие — выше<br>Прыгать можно только с земли",
   geo: "Тап — прыжок · Шипы убивают<br>На блоки можно запрыгнуть сверху"
 };
 function paintPickers(){
-  for (const b of modePick.children) b.setAttribute("aria-pressed", String(b.dataset.mode === mode));
-  for (const b of diffPick.children) b.setAttribute("aria-pressed", String(+b.dataset.diff === diff));
+  for (const dp of [modePick, modePick2])
+    for (const b of dp.children) b.setAttribute("aria-pressed", String(b.dataset.mode === mode));
+  for (const dp of [diffPick, diffPick2])
+    for (const b of dp.children) b.setAttribute("aria-pressed", String(+b.dataset.diff === diff));
   modeTip.textContent = MODES[mode].tip;
   const ct = document.getElementById("ctrlTip");
   if (ct) ct.innerHTML = CTRL_TIP[mode];
 }
-function setMode(m){
+function setMode(m, restart){
   if (!MODES[m] || m === mode) return;
   mode = m; LS.set(K_MODE, m);
   loadHi(); paintPickers(); refreshLeader(); paintScore();
+  if (restart) restartFromPause();
 }
-function setDiff(i){
+function setDiff(i, restart){
+  if (i === diff){ if (restart) restartFromPause(); return; }
   diff = clamp(i, 0, DIFFS.length - 1); LS.set(K_DIFF, String(diff));
   physics(); geoPhysics(); paintPickers();
+  if (restart) restartFromPause();
+}
+function restartFromPause(){
+  pauseScreen.classList.add("hidden");
+  last = 0;
+  startGame();
 }
 
 /* --- жизни и номер попытки в углу --- */
 function paintHud(){
   heartsEl.textContent = lives > 0 ? "❤️".repeat(lives) : "";
   attemptsEl.textContent = (mode === "geo" && state !== MENU) ? "ПОПЫТКА " + attempts : "";
+  coinsEl.textContent = coins + " 🪙";
+  btnPause.classList.toggle("show", state === PLAY);
 }
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
@@ -1374,21 +1469,20 @@ function renderBoard(){
 
 /** Показывает на стартовом экране блок выбора бонуса, если игрок на 1 месте. */
 function refreshLeader(){
-  const first = Board.isFirst(nick);
+  bonusPick.hidden = false;
   leadBox.hidden = false;
-  if (first){
-    const B = BONUSES[bonus.kind] || BONUSES.jet;
-    leadBox.textContent = "🏆 Ты на 1 месте в режиме «" + MODES[mode].name + "» — выбери бонус:";
-    modeTip.textContent = B.icon + " " + B.name + " — " + B.tip;
-    bonusPick.hidden = false;
+  const B = BONUSES[bonus.kind] || BONUSES.jet;
+  const r = Board.rank(nick);
+  if (r === 1){
+    leadBox.textContent = "🏆 1 место в режиме «" + MODES[mode].name + "» — все способности открыты";
   } else {
-    const r = Board.rank(nick);
-    leadBox.textContent = r ? "Ты на " + r + " месте. Займи 1-е — получишь бонус." 
-                            : "Займи 1 место в рейтинге — получишь бонус.";
-    bonusPick.hidden = true;
+    leadBox.textContent = "🪙 " + coins + " монет · 1000 очков = 1 монета · способность = " +
+      ABILITY_COST + (r ? " · ты на " + r + " месте" : "");
   }
-  for (const b of bonusPick.querySelectorAll(".bonusBtn"))
-    b.setAttribute("aria-pressed", String(b.dataset.bonus === bonus.kind));
+  modeTip.textContent = hasAbility(bonus.kind)
+    ? B.icon + " " + B.name + " — " + B.tip
+    : "Выбери способность: купленную можно брать в любой забег";
+  paintShop();
 }
 
 function showNickScreen(){
@@ -1449,12 +1543,73 @@ function stopBonus(){
 function paintBonus(){
   const B = BONUSES[bonus.kind];
   const show = state === PLAY && bonus.armed && B && B.timed && (!bonus.used || bonus.active);
+  if (!show) btnBonus.classList.remove("show");
   btnBonus.classList.toggle("show", show);
   if (!show) return;
   btnBonus.classList.toggle("on", bonus.active);
   const b = BONUSES[bonus.kind] || BONUSES.jet;
   btnBonus.querySelector(".ic").textContent = b.icon;
   btnBonus.querySelector(".left").textContent = bonus.active ? Math.ceil(bonus.left) + "с" : "";
+}
+
+/* ---------- Пауза ---------- */
+const pauseScreen = document.getElementById("pauseScreen");
+const btnPause    = document.getElementById("btnPause");
+
+function pauseGame(){
+  if (state !== PLAY) return;
+  state = PAUSED;
+  holding = false; bonus.thrust = false;
+  buildPickers(modePick2, diffPick2, true);
+  paintPickers();
+  pauseScreen.classList.remove("hidden");
+  paintBonus(); paintHud();
+}
+function resumeGame(){
+  if (state !== PAUSED) return;
+  pauseScreen.classList.add("hidden");
+  last = 0;                       // чтобы кадр после паузы не был «длинным»
+  state = PLAY;
+  paintBonus(); paintHud();
+}
+function toMenu(){
+  state = MENU;
+  pauseScreen.classList.add("hidden");
+  overEl.classList.add("hidden");
+  startEl.classList.remove("hidden");
+  refreshLeader(); paintPickers(); paintBonus(); paintHud();
+}
+
+/* ---------- Магазин способностей ---------- */
+function paintShop(){
+  const lead = isLeader();
+  bonusPick.innerHTML = Object.keys(BONUSES).map(k => {
+    const B = BONUSES[k], own = owned.indexOf(k) >= 0;
+    const free = !own && lead;
+    const can = own || free || coins >= ABILITY_COST;
+    const price = own ? "куплено" : (free ? "1 место" : ABILITY_COST + " 🪙");
+    return '<button class="btn chip shopBtn" data-bonus="' + k + '"' +
+      ' data-own="' + (own || free ? 1 : 0) + '" data-can="' + (can ? 1 : 0) + '"' +
+      ' aria-pressed="' + (k === bonus.kind && (own || free)) + '">' +
+      '<span class="em">' + B.icon + "</span>" + B.name +
+      '<span class="price">' + price + "</span></button>";
+  }).join("");
+  for (const b of bonusPick.children)
+    b.addEventListener("click", e => { e.stopPropagation(); tapAbility(b.dataset.bonus); });
+}
+function tapAbility(k){
+  if (hasAbility(k)){
+    bonus.kind = k; LS.set(K_BONUS, k);
+  } else if (buyAbility(k)){
+    bonus.kind = k; LS.set(K_BONUS, k);
+    Snd.point();
+  } else {
+    // не хватает монет — подсказываем, сколько осталось набрать
+    leadBox.textContent = "Не хватает монет: нужно " + ABILITY_COST + ", есть " + coins +
+      ". До следующей — " + (COIN_PER - bank) + " очков.";
+    return;
+  }
+  refreshLeader(); paintShop(); paintHud();
 }
 
 /* ---------- Ввод ---------- */
@@ -1500,6 +1655,7 @@ document.addEventListener("contextmenu",   e => e.preventDefault());
 
 // клавиатура (для проверки на компьютере)
 window.addEventListener("keydown", e => {
+  if (e.code === "Escape"){ e.preventDefault(); state === PAUSED ? resumeGame() : pauseGame(); return; }
   if (e.code === "Space" || e.code === "ArrowUp" || e.code === "Enter"){
     e.preventDefault();
     if (!e.repeat) press();
@@ -1519,6 +1675,10 @@ btnSound.addEventListener("click", e => {
 });
 document.getElementById("btnAgain").addEventListener("click", e => { e.stopPropagation(); startGame(); });
 document.getElementById("btnPlay").addEventListener("click", e => { e.stopPropagation(); startGame(); });
+btnPause.addEventListener("click", e => { e.stopPropagation(); pauseGame(); });
+document.getElementById("btnResume").addEventListener("click",  e => { e.stopPropagation(); resumeGame(); });
+document.getElementById("btnRestart").addEventListener("click", e => { e.stopPropagation(); restartFromPause(); });
+document.getElementById("btnMenu").addEventListener("click",    e => { e.stopPropagation(); toMenu(); });
 
 document.getElementById("btnNickOk").addEventListener("click", e => { e.stopPropagation(); saveNick(); });
 nickInput.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); saveNick(); } });
@@ -1541,14 +1701,6 @@ document.getElementById("btnBoardClose").addEventListener("click", e => {
   refreshLeader();
 });
 
-for (const b of bonusPick.querySelectorAll(".bonusBtn")){
-  b.addEventListener("click", e => {
-    e.stopPropagation();
-    bonus.kind = b.dataset.bonus;
-    LS.set(K_BONUS, bonus.kind);
-    refreshLeader();
-  });
-}
 btnBonus.addEventListener("click", e => { e.stopPropagation(); startBonus(); });
 for (const id of ["btnPhoto1","btnPhoto2"]){
   document.getElementById(id).addEventListener("click", e => { e.stopPropagation(); fileInput.click(); });
@@ -1594,7 +1746,10 @@ fileInput.addEventListener("change", () => {
 window.addEventListener("resize", layout);
 window.addEventListener("orientationchange", () => setTimeout(layout, 120));
 if (window.visualViewport) window.visualViewport.addEventListener("resize", layout);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) last = 0; });
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) pauseGame();        // свернули игру — не теряем забег
+  else last = 0;
+});
 
 // офлайн-режим и установка на домашний экран
 if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0){
@@ -1607,6 +1762,7 @@ layout();
 initBackground();
 paintScore();
 buildPickers();
+buildPickers(modePick2, diffPick2, true);
 paintPickers();
 loadHi();
 if (nick){ nickScreen.classList.add("hidden"); startEl.classList.remove("hidden"); }
