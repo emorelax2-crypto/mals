@@ -146,6 +146,25 @@
   .err{font-weight:600;font-size:12px;line-height:1.4;color:#c0392b;min-height:1.3em}
   body.night .err{color:#ff8f80}
 
+  .lvlList{display:flex;flex-direction:column;gap:8px;width:min(94vw,420px);
+           max-height:56vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .lvlCard{
+    display:flex;align-items:center;gap:11px;text-align:left;width:100%;
+    border:2px solid currentColor;border-radius:15px;background:rgba(255,255,255,.55);
+    color:inherit;padding:11px 13px;cursor:pointer;pointer-events:auto;
+    transition:transform .1s, background .18s;
+  }
+  body.night .lvlCard{background:rgba(12,18,40,.6)}
+  .lvlCard:active{transform:scale(.97)}
+  .lvlCard .em{font-size:1.7em;line-height:1}
+  .lvlCard .nm{flex:1;font-weight:800;font-size:clamp(14px,3.8vmin,17px);line-height:1.25}
+  .lvlCard .md{display:block;font-weight:600;font-size:.76em;opacity:.6;letter-spacing:.02em}
+  .lvlCard .pc{font-weight:800;font-size:clamp(14px,3.8vmin,18px);
+               font-variant-numeric:tabular-nums;color:#2e9b4f}
+  body.night .lvlCard .pc{color:#7ee6a0}
+  .lvlCard .cns{font-size:.9em;letter-spacing:.08em}
+  #pct{font-weight:800;font-size:clamp(13px,3.6vmin,17px);line-height:1.2;
+       font-variant-numeric:tabular-nums;text-align:right}
   .board{
     width:min(92vw,430px);max-height:50vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
     border:2px solid currentColor;border-radius:16px;background:rgba(255,255,255,.62);
@@ -191,6 +210,7 @@
   </div>
   <div class="right">
     <div id="score"><span class="hi">HI 00000</span>&nbsp;&nbsp;00000</div>
+    <div id="pct"></div>
     <div id="coins"></div>
     <div id="hearts"></div>
     <div id="attempts"></div>
@@ -226,6 +246,13 @@
   <div class="tip">Ник попадёт в таблицу рекордов</div>
 </div>
 
+<div class="overlay hidden" id="levelScreen">
+  <div class="title">УРОВНИ</div>
+  <div class="lvlList" id="lvlList"></div>
+  <div class="tip">Собери три монетки на уровне — каждая даёт 1 🪙 при первом сборе</div>
+  <button class="btn big" id="btnLvlBack">Назад</button>
+</div>
+
 <div class="overlay hidden" id="boardScreen">
   <div class="title">🏆 РЕЙТИНГ</div>
   <div class="board" id="boardBox"></div>
@@ -248,6 +275,7 @@
     <!-- заполняется из JS: иконка, название и цена или «куплено» -->
   </div>
   <div class="row">
+    <button class="btn" id="btnLevels">🎮 Уровни</button>
     <button class="btn" id="btnBoard1">🏆 Рейтинг</button>
     <button class="btn" id="btnNick">✏️ Ник</button>
   </div>
@@ -747,7 +775,7 @@ function reset(){
   milestone = 0; shake = 0; birdsUnlocked = false;
   lives = 0; invuln = 0; airJumps = 0; parts = [];
   geoSpin = 0; geoSpinTo = 0;
-  if (mode === "geo"){ geoPhysics(); spawnIn = W * 0.55; }
+  if (mode === "geo"){ geoPhysics(); buildLevel(); }
   nightPhase = 0;
   initBackground();
   spawnIn = W * 0.75;
@@ -778,18 +806,38 @@ function gameOver(){
   Snd.die();
   const sc = Math.floor(score);
   const isRec = sc > hi;
+  const wonNow = levelWon;
   if (isRec){ hi = sc; LS.set(hiKey(mode), String(hi)); }
   const improved = Board.submit(nick, sc);
   const place = Board.rank(nick);
   let got = addEarnings(sc);
   if (place === 1){ coins += 1; got += 1; saveWallet(); }   // лидеру — монета за забег
+
+  let lvlLine = "";
+  if (mode === "geo"){
+    const L = LVL();
+    const pct = levelWon ? 100 : Math.floor(progress() * 100);
+    if (pct > levelBest(L.id)) LS.set(bestKey(L.id), String(pct));
+    // монетка даётся только за ПЕРВЫЙ сбор на этом уровне
+    const had = levelCoins(L.id);
+    let fresh = 0;
+    for (let c = 0; c < 3; c++)
+      if (gotCoins[c] && had.indexOf(c) < 0){ had.push(c); fresh++; }
+    if (fresh){
+      LS.set(coinKey(L.id), JSON.stringify(had));
+      coins += fresh; got += fresh; saveWallet();
+    }
+    lvlLine = "<br>" + L.icon + " " + L.name + " — " + pct + "%" +
+      (levelWon ? " ✅" : "") +
+      (gotCoins.some(Boolean) ? "<br>монетки: " + gotCoins.map(g => g ? "🪙" : "·").join("") : "");
+  }
   overStats.innerHTML = "СЧЁТ " + pad5(sc) + "<br>РЕКОРД " + pad5(hi) +
-    (place ? "<br>МЕСТО " + place : "") +
+    (place ? "<br>МЕСТО " + place : "") + lvlLine +
     (got ? '<br><span style="color:#b8860b">+' + got + " 🪙</span>" : "");
   newRecEl.hidden = !(isRec || improved);
-  newRecEl.innerHTML = place === 1
-    ? "🏆 Ты на 1 месте! Бонус разблокирован"
-    : "🏆 Новый рекорд!";
+  newRecEl.hidden = !(isRec || improved || wonNow);
+  newRecEl.innerHTML = wonNow ? "🎉 Уровень пройден!"
+    : (place === 1 ? "🏆 Ты на 1 месте! Бонус разблокирован" : "🏆 Новый рекорд!");
   bonus.armed = false;
   btnBonus.classList.remove("show");
   overEl.classList.remove("hidden");
@@ -961,25 +1009,172 @@ function obstRun(dt){
 }
 
 /* ==================== РЕЖИМ «ГЕОМЕТРИ» ====================
-   Квадрат бежит сам, тап — прыжок с фиксированной дугой. Шипы убивают,
-   на блоки можно запрыгнуть сверху, но удар в бок — смерть.
-   py здесь — смещение НИЗА игрока от земли (0 на земле, меньше нуля в воздухе). */
-let GS = 0, GV0 = 0, GG = 0, geoSpin = 0, geoSpinTo = 0, attempts = 0;
+   Уровни фиксированные: собираются из зерна, поэтому один и тот же уровень
+   всегда одинаковый и у него есть конец — значит можно считать проценты.
+   По ходу стоят порталы, меняющие способ движения, и три монетки. */
 
-function geoPhysics(){
-  GS  = R * 1.45;                       // сторона квадрата
-  const apex = GS * 2.4, tUp = 0.31;    // дуга: хватает на 3 шипа подряд
-  GV0 = 2 * apex / tUp;
-  GG  = GV0 / tUp;
+let GS = 0, GV0 = 0, GG = 0, geoSpin = 0, geoSpinTo = 0, attempts = 0;
+let gmode = "cube", geoHold = false, onCeil = false, levelWon = false;
+let ceilY = 0, traveled = 0, levelLen = 1, levelIdx = 0, gotCoins = [false, false, false];
+
+/** Детерминированный генератор: одно зерно — один и тот же уровень. */
+function rng(seed){
+  let a = seed >>> 0;
+  return () => {
+    a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
 }
 
-function geoSpeed(){ return GS * 7.5 * D().spd * (bonus.active && bonus.kind === "fast" ? 1.3 : 1); }
-// Дуга прыжка фиксированная, поэтому размеры препятствий считаем от НЕЁ, а не от
-// клетки: иначе на высокой скорости ступенька уезжает из-под ног и на неё не попасть.
+const GMODES = {
+  cube:   { icon: "🟦", name: "Куб",     tip: "тап — прыжок" },
+  ship:   { icon: "🚀", name: "Корабль", tip: "держи — вверх, отпусти — вниз" },
+  ufo:    { icon: "🛸", name: "Джетпак", tip: "каждый тап — рывок вверх" },
+  wave:   { icon: "🌊", name: "Волна",   tip: "держи — вверх по диагонали" },
+  spider: { icon: "🕷", name: "Паук",    tip: "тап — прыжок на другую сторону" }
+};
+
+const GEO_LEVELS = [
+  { id:"start",  name:"Начало",  icon:"🟢", seed:1101, secs:5, spd:0.85, modes:["cube"] },
+  { id:"flight", name:"Взлёт",   icon:"🔵", seed:2202, secs:6, spd:0.95, modes:["cube","ship"] },
+  { id:"web",    name:"Паутина", icon:"🟠", seed:3303, secs:7, spd:1.05, modes:["cube","spider","ship"] },
+  { id:"wave",   name:"Волна",   icon:"🔴", seed:4404, secs:8, spd:1.05, modes:["cube","wave","ufo"] },
+  { id:"chaos",  name:"Хаос",    icon:"🟣", seed:5505, secs:9, spd:1.30, modes:["cube","ship","ufo","wave","spider"] }
+];
+const LVL = () => GEO_LEVELS[clamp(levelIdx, 0, GEO_LEVELS.length - 1)];
+const bestKey = id => "photorunner.lvl." + id;
+const coinKey = id => "photorunner.lvlcoins." + id;
+const levelBest  = id => parseInt(LS.get(bestKey(id), "0"), 10) || 0;
+const levelCoins = id => {
+  try { const v = JSON.parse(LS.get(coinKey(id), "[]")); return Array.isArray(v) ? v : []; }
+  catch(e){ return []; }
+};
+
+function geoPhysics(){
+  GS  = R * 1.45;
+  const apex = GS * 2.4, tUp = 0.31;
+  GV0 = 2 * apex / tUp;
+  GG  = GV0 / tUp;
+  ceilY = Math.max(R * 0.6, groundY - GS * 7);
+}
+function geoSpeed(){
+  return GS * 7.5 * LVL().spd * D().spd * (bonus.active && bonus.kind === "fast" ? 1.3 : 1);
+}
 const jumpDist = () => (2 * GV0 / GG) * geoSpeed();
 const jumpApex = () => GS * 2.4;
+const ceilPy   = () => ceilY + GS - groundY;
+const progress = () => clamp(traveled / levelLen, 0, 1);
 
+/* ---------- Сборка уровня ---------- */
+function buildLevel(){
+  const L = LVL(), rand = rng(L.seed);
+  const JD = jumpDist(), JA = jumpApex();
+  // Промежуток должен быть больше одного прыжка, иначе приземлиться негде:
+  // прыжок длится ровно JD по горизонтали, поэтому берём 1.5–2.6 от него.
+  const gapCube   = () => JD * (1.5 + rand() * 1.1);
+  const gapSpider = () => GS * (3.2 + rand() * 1.8);
+  const gapFlight = () => GS * (4.5 + rand() * 2.5);
+  const sw = GS * 0.8, sh = GS * 0.85;
+  obstacles = [];
+  let x = W + GS * 3;
+  const pick = arr => arr[Math.min(arr.length - 1, Math.floor(rand() * arr.length))];
+
+  for (let s = 0; s < L.secs; s++){
+    const m = s === 0 ? "cube" : pick(L.modes);
+    // После портала нужен чистый разгон: кораблю нужно ~4 клетки только чтобы
+    // набрать высоту, а при переходе в куб игрок падает с потолка почти секунду.
+    if (s > 0){
+      obstacles.push({ type:"portal", x: x, to: m });
+      x += Math.max(JD * 1.8, GS * 8);
+    }
+    const slots = 7 + Math.floor(rand() * 4);
+    let firstInSection = true, prevTop = null;
+
+    for (let i = 0; i < slots; i++){
+      if (m === "cube"){
+        const r = rand();
+        if (r < 0.55){
+          const fit = Math.max(1, Math.floor(JD * 0.45 / (sw * 1.02)));
+          const n = 1 + Math.floor(rand() * Math.min(3, fit));
+          for (let k = 0; k < n; k++) obstacles.push({ type:"spike", x: x + k * sw * 1.02, w: sw, h: sh, up: true });
+          x += n * sw * 1.02 + gapCube();
+          firstInSection = false;
+        } else if (r < 0.82){
+          const bh = Math.min(JA * 0.72, GS * (0.9 + rand() * 0.6));
+          const bw = Math.max(JD * 0.30, GS * 1.6);
+          obstacles.push({ type:"block", x: x, y: groundY - bh, w: bw, h: bh });
+          x += bw + gapCube();
+        } else {
+          const stepW = Math.max(JD * 0.34, GS * 1.5);
+          let bh = JA * 0.34;
+          for (let k = 0; k < 2; k++){
+            obstacles.push({ type:"block", x: x, y: groundY - bh, w: stepW, h: bh });
+            x += stepW; bh = Math.min(JA * 0.72, bh + JA * 0.3);
+          }
+          x += gapCube();
+        }
+      } else if (m === "spider"){
+        const up = rand() < 0.5;
+        const n = 1 + Math.floor(rand() * 2);
+        for (let k = 0; k < n; k++)
+          obstacles.push({ type:"spike", x: x + k * sw * 1.02, w: sw, h: sh, up: up });
+        x += n * sw * 1.02 + gapSpider();
+        firstInSection = false;
+      } else {
+        // коридор для полёта: блок сверху и снизу, между ними проход
+        const gapH = GS * (m === "wave" ? 3.0 : (m === "ufo" ? 4.0 : 3.6)) * (1 + rand() * 0.2);
+        const free = Math.max(0, (groundY - ceilY) - gapH);
+        // первый просвет секции — ровно посередине: до него одинаково близко
+        // и с пола, и с потолка, откуда бы игрок ни влетел
+        let top = ceilY + free * (firstInSection ? 0.5 : (0.15 + rand() * 0.7));
+        // и коридор должен течь плавно: резкий скачок между соседними просветами
+        // просто не успеть отработать, особенно джетпаком
+        if (prevTop !== null) top = clamp(top, prevTop - GS * 1.5, prevTop + GS * 1.5);
+        prevTop = top;
+        const bw   = GS * (1.1 + rand() * 0.9);
+        if (top - ceilY > GS * 0.3)
+          obstacles.push({ type:"block", x: x, y: ceilY, w: bw, h: top - ceilY });
+        const below = groundY - (top + gapH);
+        if (below > GS * 0.3)
+          obstacles.push({ type:"block", x: x, y: top + gapH, w: bw, h: below });
+        x += bw + gapFlight();
+        firstInSection = false;
+      }
+    }
+    x += JD * 0.5;
+  }
+
+  levelLen = x - playerX + GS * 6;
+  for (let c = 0; c < 3; c++){
+    const at = playerX + levelLen * (0.24 + c * 0.28);
+    obstacles.push({ type:"coin", x: at, y: groundY - GS * (1.7 + c * 0.5), r: GS * 0.4, idx: c });
+  }
+  obstacles.sort((p, q) => p.x - q.x);
+  traveled = 0; levelWon = false;
+  gmode = "cube"; geoHold = false; onCeil = false;
+  gotCoins = [false, false, false];
+  py = 0; vy = 0; onGround = true; airJumps = 0;
+  geoSpin = geoSpinTo = 0;
+}
+
+/* ---------- Управление ---------- */
 function geoJump(){
+  if (gmode === "ship" || gmode === "wave"){ geoHold = true; return; }
+  if (gmode === "ufo"){
+    vy = -GV0 * 0.32;
+    geoSpinTo += Math.PI / 2;
+    puff(playerX, groundY + py, 8, "#8ad6a0");
+    Snd.jump(); return;
+  }
+  if (gmode === "spider"){
+    onCeil = !onCeil;
+    py = onCeil ? ceilPy() : 0;
+    vy = 0; geoSpinTo += Math.PI;
+    burst(playerX, groundY + py, 10, "#a98cff");
+    Snd.jump(); return;
+  }
   const airAllowed = (bonus.active && bonus.kind === "dbl") ? 1 : 0;
   if (!onGround){
     if (airJumps >= airAllowed) return;
@@ -987,12 +1182,10 @@ function geoJump(){
     puff(playerX, groundY + py, 10, "#8ad6a0");
   }
   vy = -GV0 * (bonus.active && bonus.kind === "high" ? HIGH_JUMP : 1);
-  onGround = false;
-  geoSpinTo += Math.PI / 2;             // фирменный переворот
+  onGround = false; geoSpinTo += Math.PI / 2;
   Snd.jump();
 }
 
-/** Прямоугольник игрока (немного меньше картинки — так честнее). */
 function geoBox(){
   const inset = GS * 0.12;
   return { x: playerX - GS / 2 + inset, y: groundY + py - GS + inset,
@@ -1000,99 +1193,123 @@ function geoBox(){
 }
 const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
+/* ---------- Физика по режимам ---------- */
 function physGeo(dt){
   const feetPrev = groundY + py;
+  const topLimit = ceilY + GS - groundY;   // py, при котором упираемся в потолок
 
   if (bonus.active && bonus.kind === "jet"){
-    vy += (bonus.thrust ? -GG * 0.55 : GG * 0.3) * dt;
+    vy += ((bonus.thrust || geoHold) ? -GG * 0.55 : GG * 0.3) * dt;
     vy = clamp(vy, -GV0 * 0.8, GV0 * 0.7);
+    py += vy * dt;
+  } else if (gmode === "ship"){
+    vy += (geoHold ? -GG * 0.5 : GG * 0.5) * dt;
+    vy = clamp(vy, -GV0 * 0.62, GV0 * 0.62);
+    py += vy * dt;
+  } else if (gmode === "ufo"){
+    // гравитация вдвое слабее куба и есть предел падения: иначе после падения
+    // с потолка рывка уже не хватает, чтобы выровняться
+    // мелкий рывок и слабая гравитация: джетпаком правят частыми короткими
+    // тапами, поэтому каждый должен давать небольшую поправку, иначе игрока
+    // болтает вокруг нужной высоты с амплитудой в собственный рост
+    vy += GG * 0.30 * dt;
+    vy = Math.min(vy, GV0 * 0.40);
+    py += vy * dt;
+  } else if (gmode === "wave"){
+    vy = (geoHold ? -1 : 1) * geoSpeed();   // ровно 45 градусов
+    py += vy * dt;
+  } else if (gmode === "spider"){
+    py = onCeil ? ceilPy() : 0; vy = 0;
   } else {
     vy += GG * (bonus.active && bonus.kind === "high" ? HIGH_JUMP : 1) * dt;
+    py += vy * dt;
   }
-  py += vy * dt;
 
-  const ceiling = -(groundY - GS * 1.2);
-  if (py < ceiling){ py = ceiling; if (vy < 0) vy = 0; }
+  if (gmode !== "spider" && py < topLimit){ py = topLimit; if (vy < 0) vy = 0; }
 
-  // ищем опору: земля или верх блока, который мы пересекли сверху вниз
   const feet = groundY + py;
-  const bx0 = playerX - GS / 2, bx1 = playerX + GS / 2;
   let floor = groundY;
-  for (const o of obstacles){
-    if (o.type !== "block") continue;
-    if (bx1 > o.x + GS * 0.1 && bx0 < o.x + o.w - GS * 0.1){
-      if (feetPrev <= o.y + 2 && feet >= o.y) floor = Math.min(floor, o.y);
+  if (gmode === "cube"){
+    const bx0 = playerX - GS / 2, bx1 = playerX + GS / 2;
+    for (const o of obstacles){
+      if (o.type !== "block") continue;
+      if (bx1 > o.x + GS * 0.1 && bx0 < o.x + o.w - GS * 0.1){
+        if (feetPrev <= o.y + 2 && feet >= o.y) floor = Math.min(floor, o.y);
+      }
     }
   }
   if (feet >= floor){
-    if (!onGround || Math.abs(vy) > 1) puff(playerX, floor, 6, "#b9b4a6");
-    py = floor - groundY; vy = 0;
-    if (!onGround){ onGround = true; airJumps = 0; geoSpin = geoSpinTo = Math.round(geoSpinTo / (Math.PI / 2)) * (Math.PI / 2); }
-  } else {
+    if (gmode === "cube"){
+      if (!onGround || Math.abs(vy) > 1) puff(playerX, floor, 6, "#b9b4a6");
+      py = floor - groundY; vy = 0;
+      if (!onGround){ onGround = true; airJumps = 0;
+        geoSpin = geoSpinTo = Math.round(geoSpinTo / (Math.PI / 2)) * (Math.PI / 2); }
+    } else if (gmode !== "spider"){
+      py = 0; if (vy > 0) vy = 0; onGround = true;
+    }
+  } else if (gmode !== "spider"){
     onGround = false;
   }
 
-  // в воздухе квадрат докручивается к цели
-  if (!onGround) geoSpin += (geoSpinTo - geoSpin) * Math.min(1, dt * 9) + dt * 3.2;
+  if (gmode === "cube"){
+    if (!onGround) geoSpin += (geoSpinTo - geoSpin) * Math.min(1, dt * 9) + dt * 3.2;
+  } else if (gmode === "wave"){
+    geoSpin = geoHold ? -Math.PI / 4 : Math.PI / 4;
+  } else if (gmode === "spider"){
+    geoSpin += (geoSpinTo - geoSpin) * Math.min(1, dt * 16);
+  } else {
+    geoSpin = clamp(vy / (GV0 * 1.2), -0.5, 0.5);
+  }
   bodyAngle = geoSpin;
 }
 
-function spawnGeo(){
-  const JD = jumpDist(), JA = jumpApex();
-  const sw = GS * 0.8, sh = GS * 0.85;
-  const r = Math.random();
-
-  if (r < 0.55 || diff === 0){
-    // группа шипов: не шире 45% прыжка, иначе её не перелететь
-    const want = diff === 0 ? 1 : ri(1, Math.min(3, 1 + diff));
-    const fit  = Math.max(1, Math.floor(JD * 0.45 / (sw * 1.02)));
-    const n = Math.min(want, fit);
-    for (let i = 0; i < n; i++)
-      obstacles.push({ type: "spike", x: W + i * sw * 1.02, w: sw, h: sh });
-
-  } else if (r < 0.82){
-    // одиночный блок: ниже 72% верхней точки прыжка (можно перелететь)
-    // и шире 30% прыжка (можно приземлиться сверху)
-    const bh = Math.min(JA * 0.72, GS * rnd(0.9, 1.5));
-    const bw = Math.max(JD * 0.30, GS * 1.6);
-    obstacles.push({ type: "block", x: W, y: groundY - bh, w: bw, h: bh });
-
-  } else {
-    // лесенка: две ступени, каждая достаточно широкая для посадки
-    const stepW = Math.max(JD * 0.34, GS * 1.5);
-    let x = W, bh = JA * 0.34;
-    for (let i = 0; i < 2; i++){
-      obstacles.push({ type: "block", x: x, y: groundY - bh, w: stepW, h: bh });
-      x += stepW;
-      bh = Math.min(JA * 0.72, bh + JA * 0.3);
-    }
-  }
-  spawnIn = geoSpeed() * rnd(0.95, 1.7) * D().gap;
-}
-
+/* ---------- Препятствия, порталы, монетки ---------- */
 function obstGeo(dt){
   const v = geoSpeed();
-  spawnIn -= v * dt;
-  if (spawnIn <= 0) spawnGeo();
-
+  traveled += v * dt;
   if (invuln > 0) invuln -= dt;
-  const box = geoBox();
 
+  if (traveled >= levelLen && !levelWon){ finishLevel(); return; }
+
+  const box = geoBox();
   for (let i = obstacles.length - 1; i >= 0; i--){
     const o = obstacles[i];
     o.x -= v * dt;
-    if (o.x + (o.w || GS) < -GS){ obstacles.splice(i, 1); continue; }
+    if (o.x + (o.w || GS * 2) < -GS * 2){ obstacles.splice(i, 1); continue; }
+
+    if (o.type === "portal"){
+      if (o.x <= playerX && o.x > playerX - v * dt - GS){
+        gmode = o.to; geoHold = false; onCeil = false;
+        if (gmode === "spider") py = 0;
+        burst(playerX, groundY + py, 20, "#57c8ff");
+        Snd.tone(520, 900, 0.18, "sine", 0.12);
+      }
+      continue;
+    }
+    if (o.type === "coin"){
+      const dx = playerX - o.x, dy = (groundY + py - GS / 2) - o.y;
+      if (dx * dx + dy * dy < (o.r + GS * 0.5) * (o.r + GS * 0.5) && !gotCoins[o.idx]){
+        gotCoins[o.idx] = true;
+        burst(o.x, o.y, 18, "#ffd34d");
+        Snd.point();
+        obstacles.splice(i, 1);
+      }
+      continue;
+    }
     if (invuln > 0) continue;
 
     let dead = false, cx = o.x, cy = groundY;
     if (o.type === "spike"){
-      // прощаем края: опасна середина шипа
-      const s = { x: o.x + o.w * 0.24, y: groundY - o.h * 0.82, w: o.w * 0.52, h: o.h * 0.82 };
-      if (overlap(box, s)){ dead = true; cx = o.x + o.w / 2; cy = groundY - o.h / 2; }
+      const s = o.up
+        ? { x:o.x + o.w*0.24, y:groundY - o.h*0.82, w:o.w*0.52, h:o.h*0.82 }
+        : { x:o.x + o.w*0.24, y:ceilY,              w:o.w*0.52, h:o.h*0.82 };
+      if (overlap(box, s)){ dead = true; cx = o.x + o.w/2; cy = s.y + s.h/2; }
     } else {
-      // сверху мы уже стоим на блоке; значит любое пересечение — удар в бок
-      if (overlap(box, o) && box.y + box.h > o.y + GS * 0.22){
-        dead = true; cx = o.x; cy = o.y + o.h / 2;
+      // в кубе сверху мы стоим, значит пересечение — удар в бок; в полёте любое касание смертельно
+      if (overlap(box, o)){
+        if (gmode === "cube") dead = box.y + box.h > o.y + GS * 0.22;
+        else dead = true;
+        cx = o.x; cy = o.y + o.h / 2;
       }
     }
     if (dead){
@@ -1102,24 +1319,65 @@ function obstGeo(dt){
   }
 }
 
+function finishLevel(){
+  levelWon = true;
+  burst(playerX, groundY + py, 40, "#ffd34d");
+  gameOver();
+}
+
 /* ---------- Отрисовка «Геометри» ---------- */
 function drawGeo(ink){
   const danger = nightPhase > 0.5 ? "#ff6b6b" : "#e03e3e";
+  const flight = gmode !== "cube";
+
+  if (flight){                                  // потолок коридора
+    ctx.fillStyle = mixRGB([214,208,196], [24,30,56], nightPhase);
+    ctx.fillRect(0, 0, W, ceilY);
+    ctx.fillStyle = mixRGB([46,155,79], [126,230,160], nightPhase);
+    ctx.fillRect(0, ceilY - Math.max(2, R*0.06), W, Math.max(3, R*0.08));
+  }
+
   for (const o of obstacles){
-    if (o.type === "spike"){
+    if (o.type === "portal"){
+      const g = ctx.createLinearGradient(o.x, ceilY, o.x, groundY);
+      g.addColorStop(0, "rgba(87,200,255,.15)");
+      g.addColorStop(.5, "rgba(87,200,255,.75)");
+      g.addColorStop(1, "rgba(87,200,255,.15)");
+      ctx.fillStyle = g;
+      ctx.fillRect(o.x - GS*0.18, ceilY, GS*0.36, groundY - ceilY);
+      ctx.font = "700 " + Math.round(GS*0.6) + "px system-ui, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(GMODES[o.to].icon, o.x, groundY - GS*4.6);
+      ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
+    } else if (o.type === "coin"){
+      ctx.fillStyle = "#ffd34d";
+      ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, TAU); ctx.fill();
+      ctx.lineWidth = Math.max(2, GS*0.07); ctx.strokeStyle = "#b8860b"; ctx.stroke();
+      ctx.fillStyle = "#b8860b";
+      ctx.font = "800 " + Math.round(o.r*1.1) + "px ui-monospace, monospace";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("★", o.x, o.y + o.r*0.05);
+      ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
+    } else if (o.type === "spike"){
       ctx.fillStyle = danger;
       ctx.beginPath();
-      ctx.moveTo(o.x, groundY + 1);
-      ctx.lineTo(o.x + o.w / 2, groundY - o.h);
-      ctx.lineTo(o.x + o.w, groundY + 1);
+      if (o.up){
+        ctx.moveTo(o.x, groundY + 1);
+        ctx.lineTo(o.x + o.w/2, groundY - o.h);
+        ctx.lineTo(o.x + o.w, groundY + 1);
+      } else {
+        ctx.moveTo(o.x, ceilY - 1);
+        ctx.lineTo(o.x + o.w/2, ceilY + o.h);
+        ctx.lineTo(o.x + o.w, ceilY - 1);
+      }
       ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = ink; ctx.lineWidth = Math.max(1.5, R * 0.05); ctx.stroke();
+      ctx.strokeStyle = ink; ctx.lineWidth = Math.max(1.5, R*0.05); ctx.stroke();
     } else {
       const rad = GS * 0.14;
       rrect(ctx, o.x, o.y, o.w, o.h, rad);
-      ctx.lineWidth = Math.max(3, R * 0.13); ctx.strokeStyle = ink; ctx.lineJoin = "round"; ctx.stroke();
+      ctx.lineWidth = Math.max(3, R*0.13); ctx.strokeStyle = ink; ctx.lineJoin = "round"; ctx.stroke();
       ctx.save(); ctx.clip();
-      if (cactusReady) drawCover(cactusImg, o.x, o.y, o.w, o.h);
+      if (cactusReady) drawCover(cactusImg, o.x, o.y, o.w, Math.max(o.h, GS));
       else { ctx.fillStyle = "#4a7c2f"; ctx.fill(); }
       ctx.restore();
     }
@@ -1127,24 +1385,35 @@ function drawGeo(ink){
 }
 
 function drawPlayerGeo(ink){
-  const cx = playerX, cy = groundY + py - GS / 2;
+  const cx = playerX, cy = groundY + py - GS/2;
   ctx.save();
   ctx.globalAlpha = 0.18; ctx.fillStyle = "#000";
-  ctx.beginPath(); ctx.ellipse(cx, groundY + 2, GS * 0.5, GS * 0.12, 0, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx, groundY + 2, GS*0.5, GS*0.12, 0, 0, TAU); ctx.fill();
   ctx.restore();
 
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(bodyAngle);
-  if (invuln > 0) ctx.globalAlpha = 0.45 + 0.55 * Math.abs(Math.sin(runT * 18));
-  const s = GS / 2, rad = GS * 0.18;
+  if (invuln > 0) ctx.globalAlpha = 0.45 + 0.55*Math.abs(Math.sin(runT*18));
+
+  if (gmode === "ship" || gmode === "ufo"){        // крылышки кораблю и джетпаку
+    ctx.fillStyle = ink;
+    ctx.beginPath();
+    ctx.moveTo(-GS*0.62, GS*0.1); ctx.lineTo(-GS*0.2, -GS*0.12);
+    ctx.lineTo(-GS*0.2, GS*0.34); ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(GS*0.62, GS*0.1); ctx.lineTo(GS*0.2, -GS*0.12);
+    ctx.lineTo(GS*0.2, GS*0.34); ctx.closePath(); ctx.fill();
+  }
+
+  const s = GS/2, rad = gmode === "wave" ? GS*0.5 : GS*0.18;
   rrect(ctx, -s, -s, GS, GS, rad);
   ctx.save(); ctx.clip();
   if (playerReady) ctx.drawImage(playerImg, -s, -s, GS, GS);
   else { ctx.fillStyle = ink; ctx.fill(); }
   ctx.restore();
   rrect(ctx, -s, -s, GS, GS, rad);
-  ctx.lineWidth = Math.max(3, GS * 0.09); ctx.strokeStyle = ink; ctx.lineJoin = "round"; ctx.stroke();
+  ctx.lineWidth = Math.max(3, GS*0.09); ctx.strokeStyle = ink; ctx.lineJoin = "round"; ctx.stroke();
   ctx.restore();
 }
 
@@ -1459,10 +1728,13 @@ function paintPickers(){
   if (ct) ct.innerHTML = CTRL_TIP[mode];
 }
 function setMode(m, restart){
-  if (!MODES[m] || m === mode) return;
+  if (!MODES[m]) return;
+  const same = m === mode;
   mode = m; LS.set(K_MODE, m);
-  loadHi(); paintPickers(); refreshLeader(); paintScore();
-  if (restart) restartFromPause();
+  if (!same){ loadHi(); paintPickers(); refreshLeader(); paintScore(); }
+  if (restart){ restartFromPause(); return; }
+  // выбор «Геометри» ведёт прямо в список уровней
+  if (m === "geo" && state === MENU) openLevels();
 }
 function setDiff(i, restart){
   if (i === diff){ if (restart) restartFromPause(); return; }
@@ -1481,6 +1753,9 @@ function paintHud(){
   heartsEl.textContent = lives > 0 ? "❤️".repeat(lives) : "";
   attemptsEl.textContent = (mode === "geo" && state !== MENU) ? "ПОПЫТКА " + attempts : "";
   coinsEl.textContent = coins + " 🪙";
+  if (mode === "geo" && (state === PLAY || state === PAUSED)){
+    pctEl.textContent = Math.floor(progress() * 100) + "% · " + GMODES[gmode].icon;
+  } else pctEl.textContent = "";
   btnPause.classList.toggle("show", state === PLAY);
 }
 
@@ -1591,6 +1866,38 @@ function paintBonus(){
   btnBonus.querySelector(".left").textContent = bonus.active ? Math.ceil(bonus.left) + "с" : "";
 }
 
+/* ---------- Уровни «Геометри» ---------- */
+const levelScreen = document.getElementById("levelScreen");
+const lvlList     = document.getElementById("lvlList");
+const pctEl       = document.getElementById("pct");
+
+function renderLevels(){
+  lvlList.innerHTML = GEO_LEVELS.map((L, i) => {
+    const got = levelCoins(L.id);
+    const dots = [0,1,2].map(c => got.indexOf(c) >= 0 ? "🪙" : "·").join("");
+    const modes = L.modes.map(m => GMODES[m].icon).join("");
+    return '<button class="lvlCard" data-lvl="' + i + '">' +
+      '<span class="em">' + L.icon + "</span>" +
+      '<span class="nm">' + L.name + '<span class="md">' + modes + "</span></span>" +
+      '<span class="cns">' + dots + "</span>" +
+      '<span class="pc">' + levelBest(L.id) + "%</span></button>";
+  }).join("");
+  for (const b of lvlList.children)
+    b.addEventListener("click", e => {
+      e.stopPropagation();
+      levelIdx = +b.dataset.lvl;
+      levelScreen.classList.add("hidden");
+      startGame();
+    });
+}
+function openLevels(){
+  renderLevels();
+  startEl.classList.add("hidden");
+  overEl.classList.add("hidden");
+  pauseScreen.classList.add("hidden");
+  levelScreen.classList.remove("hidden");
+}
+
 /* ---------- Пауза ---------- */
 const pauseScreen = document.getElementById("pauseScreen");
 const btnPause    = document.getElementById("btnPause");
@@ -1662,7 +1969,7 @@ function press(){
   }
   if (state === OVER && performance.now() - overAt > 450) startGame();
 }
-function release(){ holding = false; bonus.thrust = false; }
+function release(){ holding = false; bonus.thrust = false; geoHold = false; }
 
 // тач / мышь через Pointer Events
 window.addEventListener("pointerdown", e => {
@@ -1716,12 +2023,16 @@ document.getElementById("btnAgain").addEventListener("click", e => { e.stopPropa
 document.getElementById("btnPlay").addEventListener("click", e => { e.stopPropagation(); startGame(); });
 btnPause.addEventListener("click", e => { e.stopPropagation(); pauseGame(); });
 document.getElementById("btnResume").addEventListener("click",  e => { e.stopPropagation(); resumeGame(); });
+document.getElementById("btnLvlBack").addEventListener("click", e => {
+  e.stopPropagation(); levelScreen.classList.add("hidden"); startEl.classList.remove("hidden");
+});
 document.getElementById("btnRestart").addEventListener("click", e => { e.stopPropagation(); restartFromPause(); });
 document.getElementById("btnMenu").addEventListener("click",    e => { e.stopPropagation(); toMenu(); });
 
 document.getElementById("btnNickOk").addEventListener("click", e => { e.stopPropagation(); saveNick(); });
 nickInput.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); saveNick(); } });
 document.getElementById("btnNick").addEventListener("click", e => { e.stopPropagation(); showNickScreen(); });
+document.getElementById("btnLevels").addEventListener("click", e => { e.stopPropagation(); openLevels(); });
 
 let boardCameFrom = null;
 for (const id of ["btnBoard1","btnBoard2"]){
