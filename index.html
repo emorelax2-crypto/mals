@@ -300,6 +300,45 @@ const K_COINS = "photorunner.coins", K_BANK = "photorunner.bank", K_OWNED = "pho
 const boardKey = m => "photorunner.board." + m;   // у каждого режима свой рейтинг
 const hiKey    = m => "photorunner.hi." + m;
 
+/* ---------- Перенос сохранений между версиями ----------
+   Когда появились режимы, рекорд и таблица переехали с "photorunner.hi" и
+   "photorunner.board" на ключи с суффиксом режима. Старые данные при этом
+   осиротели — игра просто переставала их видеть, и это выглядело как сброс.
+   Здесь они переносятся на новое место. Старые ключи НЕ удаляем: если
+   браузер отдаст из кэша прежнюю сборку, она продолжит работать.
+   Любое будущее переименование ключа добавляется сюда новым шагом. */
+const K_SAVEV = "photorunner.savev";
+function migrateStorage(){
+  let v = parseInt(LS.get(K_SAVEV, "0"), 10) || 0;
+  if (v < 1){
+    // Сливаем, а не подставляем: если после обновления уже успели поиграть,
+    // новый ключ существует, и простая подстановка потеряла бы старые рекорды.
+    const num = k => parseInt(LS.get(k, "0"), 10) || 0;
+    const rows = k => {
+      try { const a = JSON.parse(LS.get(k, "[]")); return Array.isArray(a) ? a : []; }
+      catch(e){ return []; }
+    };
+    const best = Math.max(num("photorunner.hi"), num(hiKey("run")));
+    if (best > 0) LS.set(hiKey("run"), String(best));
+
+    const merged = new Map();
+    for (const r of rows("photorunner.board").concat(rows(boardKey("run")))){
+      if (!r || typeof r.nick !== "string" || !isFinite(r.score)) continue;
+      const key = r.nick.toLowerCase();
+      const prev = merged.get(key);
+      if (!prev || r.score > prev.score) merged.set(key, { nick: r.nick, score: r.score, at: r.at || 0 });
+    }
+    if (merged.size){
+      const list = [...merged.values()].sort((a, b) => b.score - a.score || a.at - b.at);
+      LS.set(boardKey("run"), JSON.stringify(list.slice(0, 50)));
+    }
+    v = 1;
+  }
+  LS.set(K_SAVEV, String(v));
+  return v;
+}
+migrateStorage();
+
 /* ---------- DOM ---------- */
 const cv = document.getElementById("cv");
 const ctx = cv.getContext("2d", { alpha:false });
@@ -1754,7 +1793,9 @@ document.addEventListener("visibilitychange", () => {
 // офлайн-режим и установка на домашний экран
 if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0){
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
+    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" })
+      .then(reg => { try { reg.update(); } catch(e){} })
+      .catch(() => {});
   });
 }
 
