@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#f7f7f7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Фото-Раннер</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{
+    width:100%;height:100%;overflow:hidden;position:fixed;overscroll-behavior:none;
+    background:#f7f7f7;touch-action:none;
+    -webkit-user-select:none;-moz-user-select:none;user-select:none;
+    -webkit-touch-callout:none;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  #cv{display:block;position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+
+  .hud{
+    position:absolute;top:0;left:0;right:0;z-index:20;pointer-events:none;
+    padding:calc(env(safe-area-inset-top) + 10px) calc(env(safe-area-inset-right) + 12px) 0 calc(env(safe-area-inset-left) + 12px);
+    display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+  }
+  .hud .left{display:flex;gap:8px;pointer-events:auto}
+  #score{
+    font:700 clamp(13px,3.6vmin,20px)/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    letter-spacing:.09em;text-align:right;color:#535353;white-space:nowrap;
+    transition:color .2s;
+  }
+  #score .hi{opacity:.55}
+  #score.pop{color:#2e9b4f}
+  body.night #score{color:#d9dbe6}
+  body.night #score.pop{color:#7ee6a0}
+
+  .btn{
+    -webkit-appearance:none;appearance:none;border:2px solid #535353;background:rgba(255,255,255,.72);
+    color:#535353;border-radius:999px;font:600 14px/1 inherit;padding:9px 13px;
+    cursor:pointer;pointer-events:auto;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+    transition:transform .08s ease, background .2s, color .2s, border-color .2s;
+    white-space:nowrap;
+  }
+  .btn:active{transform:scale(.93)}
+  body.night .btn{border-color:#d9dbe6;color:#d9dbe6;background:rgba(18,24,48,.62)}
+  .btn.icon{padding:9px 11px;font-size:16px}
+
+  .overlay{
+    position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:14px;text-align:center;
+    padding:calc(env(safe-area-inset-top) + 56px) 20px calc(env(safe-area-inset-bottom) + 20px);
+    color:#535353;background:rgba(247,247,247,.82);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+    animation:fade .25s ease;
+  }
+  body.night .overlay{color:#e6e8f2;background:rgba(9,13,30,.8)}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .overlay.hidden{display:none}
+  .title{font:800 clamp(24px,7vmin,44px)/1.1 inherit;letter-spacing:.02em}
+  .sub{font:600 clamp(14px,3.9vmin,20px)/1.45 inherit;opacity:.9}
+  .tip{font:500 clamp(11px,3vmin,14px)/1.5 inherit;opacity:.6;max-width:28em}
+  .stats{font:700 clamp(14px,4vmin,20px)/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.06em}
+  .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}
+  .btn.big{font-size:clamp(15px,4vmin,19px);padding:13px 24px;background:#535353;color:#f7f7f7}
+  body.night .btn.big{background:#e6e8f2;color:#0b1022;border-color:#e6e8f2}
+  .avatar{
+    width:clamp(64px,17vmin,104px);height:clamp(64px,17vmin,104px);border-radius:50%;
+    object-fit:cover;border:3px solid currentColor;box-shadow:0 6px 18px rgba(0,0,0,.16);
+  }
+  .pulse{animation:pulse 1.5s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.95;transform:translateY(0)}50%{opacity:.5;transform:translateY(-4px)}}
+  #file{display:none}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div class="hud">
+  <div class="left">
+    <button class="btn icon" id="btnSound" aria-label="Звук">🔊</button>
+  </div>
+  <div id="score"><span class="hi">HI 00000</span>&nbsp;&nbsp;00000</div>
+</div>
+
+<div class="overlay" id="startScreen">
+  <img class="avatar" id="avaStart" alt="">
+  <div class="title">ФОТО-РАННЕР</div>
+  <div class="sub pulse">Нажми, чтобы начать</div>
+  <div class="tip">Тап — прыжок · Долгое нажатие — прыжок выше<br>Прыгать можно только с земли</div>
+  <div class="row">
+    <button class="btn" id="btnPhoto1">📷 Выбрать фото</button>
+    <button class="btn" id="btnReset1" hidden>↺ Вернуть стандартное</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="overScreen">
+  <img class="avatar" id="avaOver" alt="">
+  <div class="title">GAME OVER</div>
+  <div class="stats" id="overStats">СЧЁТ 00000<br>РЕКОРД 00000</div>
+  <div class="row">
+    <button class="btn big" id="btnAgain">▶ Играть снова</button>
+  </div>
+  <div class="row">
+    <button class="btn" id="btnPhoto2">📷 Выбрать фото</button>
+    <button class="btn" id="btnReset2" hidden>↺ Вернуть стандартное</button>
+  </div>
+  <div class="tip" id="newRec" hidden>🏆 Новый рекорд!</div>
+</div>
+
+<input type="file" id="file" accept="image/*">
+
+<script>
+"use strict";
+/* ========================================================================
+   ФОТО-РАННЕР — раннер в стиле дино из Chrome
+   Один файл, без внешних библиотек и без интернета.
+   ===================================================================== */
+
+/* ---------- Встроенные картинки ---------- */
+const DEFAULT_PLAYER = "data:image/jpeg;base64,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";
+const BIRD_SRC       = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAcFBQYFBAcGBgYIBwcICxILCwoKCxYPEA0SGhYbGhkWGRgcICgiHB4mHhgZIzAkJiorLS4tGyIyNTEsNSgsLSz/2wBDAQcICAsJCxULCxUsHRkdLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCz/wAARCACgAKADASIAAhEBAxEB/8QAHAAAAQUBAQEAAAAAAAAAAAAABAECAwUGAAgH/8QANRAAAQMDAwIEAwYGAwAAAAAAAQACAwQRIQUSMRNBBjJRYSJxgRQjM0KCkRZSYqGx0UOS4f/EABgBAAMBAQAAAAAAAAAAAAAAAAABAgME/8QAHREBAQEBAQEAAwEAAAAAAAAAAAERAiESAzFBIv/aAAwDAQACEQMRAD8A9HhrW8NA+iVclKBXdki5cgFSLlyA5I7ymyVIfKfkiiMV4jH3bfdyzcg9lp/Eos1g91mZeCs7BAj+UJO4tPlJHqOyLkQ0mSoML9oa65a1xt7cqAVLnAkNsRzfACKeb91C8YIPdCg8kx4cLD2F1CZpHuDm/hjseSiOixp4v9VCYNjbMcWn15QDAXggltr8HspeqCBiy54LoyOUNLM2NoF7E4AQZJa7bhmT6BdB9ojnLjvkjdjJHw+6jpo9kpIa2zvTsjgSAkHoRKkXLoZlXJEt0Ai5cuQHLjwuSPPwO+SBGO8T8s+qzEq0/igEyMACyNVM2Mn4gfkpJDJe5Qsz2suSQPqh6utcbgOt8lTVEpcTd11OHq1kq4Wi5kb+6HdqFNf8UKklkJ7oSR6XyetL9upnH8Zv1Kd1o3+WRp+RWTc8pvUI7lL5GtaTdpBxcWQ7I2vID/O3FvUKijr6iLyyG3ocopmsbrCeP9TMEJWHKuGsZHcNbYp3AQkVZHK3EgdfuOf2XQ7pQfvDsbi4/Mkb0guSNO5ocOClXQhy5cuQHJUiQkAEk2A7oBypdV8QQ0bXRw2ll4PoENrGsktMUDtrOC4cn/xZGrqd18p4VqPVNSmqpC+V5cf8LO1dRyi6qY3OVSVkpJOUsToeon5QD5b3Szy3JQpfcpKJI9DPeLp8z7EoVzvdIzi/KTfhQufjnKaH5sot9OCNxS3KjDgnsNwlocHuY4OaSCrGh1Yx2in8g4I7KucFGUlPXEQIhYD2ATly4LdDly5cgyqm1OsdI8wxH7tvnPr7I6vqOhAQ02c7AVDWHpUozl2SqkTapa+YFxyqKqk5R9ZJyqWqksnUwDVS2uqSqmyVYVUvKo6p+SoMPNIEMJLuKSaTlQMk+LKMNJM7CFc9TT32oNzsqKHOksuEmQVC45XAqKcGMN891M1xAQkb7hENckqJvMmubZKDbhIcoU9brly5bs3LlyiqZRDTveewQKqa6brVu0G4ZhVmrOLQG+gRFETNO53N3IfXhZ7lpmI/jK1r8lUdU82KtKyQbiqSqfyponqtqpMlUlVJk5VnUuOVSVb8lSYOaXJUTZLvCZK4C+UP142OBc8D6paJVlKbxqvkdYp0urUTY7GYEjsBdVsmr04vZr3fRSYwk83SbjdVD9daLgQk/MqF2vyflgaPmbow8aWF3ZENORlZAeIqpvlZGPol/iauHHS/6pfNOVtLpSbLFfxVqDT/AMR/SnjxfqDR5IHfpP8AtHxT17qXKordULZGmB928/NOh1yM4nbt9wtcRq1VXrk2ylDL8qximjmZujeHt9QVnvEdQN+2+BhE/YtO0kXY0/1ILxEfvnC6Hj8S6Zo9MH1M4c4H8NmXLF+JfH79Qmf9ipxAzs553O/0FpUb4kr3tYXOJAA91lq/V6SK4MwcR2blVNZX1FVITLK59/UqpqATfCmnBFd4iYCelEXe7jZUNTrFRMTYtYD6BLUNGVXvsDlR4rCTTySeZ5P1QzrnupXWPdNLbcqa2nIVwsVG8qeSyFkcg7MRScqIpz3po+IKmZh5XJxCaQeyBhpSXylTTymT2rUzbXBo/KLIV05vyop5d0jjfuhnSqqiLTTq7oV8b3zdOJpu83sLAd1l/FHi06hUvbSExwDAPd3v7KTUupPRyRxH4iOPVYqrc5jy14LXDsUT1PWkqaovjcCcqmln+NSzSmxQDHb52tPc2VIiUgm59Dj5KOaPF7XU8LT9qa0g87fmj6uiMbLluVja6uOdZCrp3bybqtrIndLd3BWgrInRvJthVkzeo17cX5S1pfxqIF26wJRscd47HlHUmkxub1ZTf0BT56URPbbLXcFLVc8YoZ/hJQEhLnFWVY371wQbohbKJR1yDIulaLKV8JBwmhh7qtZ/BO6S1ynELg3KDxEfMUzaSeFK5tnLUeGtIoq2B8s8XUex3cm1vklesR816MfJccod0iZJJYeyHMuVVqJErn3KFqIIKlpbNE149SMpS8kpC5Tp4qZ/C9FPfZLJFf6hZ+p8MyQwsmFU0OLvhYW5I9Vs5HOIAa4NNxc84VDUGV9YesS3e6/rYHhP6qfmKSaM09Sy4ubgn91pNRguXf2VbrNI1pBjudliLq4qz1YA8HzNB/soldH45jHavEG3NlmXj4yVqtXc0NcHZIWTqZmh5Srqk8IJH1NRFSMNt5t9FcSURbQtGy3TwPksxFK9lW2eM2c03C1FHVz1tKS9zQ704QGYrYR1CQFWviJ7K4r90VQ9rxax7qtkc4mwwEoOpAn9J5CUxlc9pBv3T2uvZP8ASZyhcy54StjwUTsvwntiulovCvkjFx6rX+DnFkdQAwvyHWHKzRp3EbyMArV+F2GnbIQDfBHuEur4wsyvsb5MKJ0iY9+FE561YJd5TS/ChL00vuEKxKZE0uG4nGeVEXYUZkylRiCvAme4HItx7qZwLdPhDskMAwoXOySeSn9QPo7XywqY14vuMnrrtt/dY6rdmw5K2evMJjL1iagfehDo3/InT6J9S8WB2jkq7cG0UJuL2FrIehroKDT23+KR3DfVCVddWVcYkFO5sb3bWm3JCKJ6ra2brTF/qhSnT9VpIcwgqF3UaQNvKSqc6O4uh23D7KRtU0W3EDslcAXAhCdlSsRVLHvqGN/mICGYCFZaRH1dSgFuHXP0UVp/Gnn0imkpC10I3bdoIS6dRuhhvbLRY+6tWNDmi6cGtaMBS5daZz7hROfhdNHVRB++jnbsALrxnAPF/moZWuglDHkHc3cC29jkjuPUELpYnl6aXWymFxPdML0HiQvwoHyFIXqB78oKnPlxlJBNeQx/zi31Q0kgKh6pY9rgbEEFI54j1OIvp3stkLB1bC2UhfStSYBKXAfDJlYHWYDFVOFsXwodU9jPy1EsNY2Vpy0ggFXVJ4mEcTGTweWQuBbkAH/SDm0188DJGDlwb+6fq+kO09/TNjt7hXksTJYZV6nSyvwS4A3GEJPXtLQIhc+4QbmC6mijDiABdTOJBvXXgGRp3Z5R8N+m1NfFuktbCl27QAnafPOVPH7rQ+F4N9ZJI78jP8lZ+MXC1fhmO0Ez7ckBZdL7vjRMOEpPdMAFrkpL59VLnf/Z";
+
+/* ---------- Хранилище (может быть недоступно в приватном режиме) ------ */
+const LS = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, v); return true; } catch(e){ return false; } },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} }
+};
+const K_HI = "photorunner.hi", K_IMG = "photorunner.photo", K_SND = "photorunner.sound";
+
+/* ---------- DOM ---------- */
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d", { alpha:false });
+const scoreEl   = document.getElementById("score");
+const startEl   = document.getElementById("startScreen");
+const overEl    = document.getElementById("overScreen");
+const overStats = document.getElementById("overStats");
+const newRecEl  = document.getElementById("newRec");
+const fileInput = document.getElementById("file");
+const btnSound  = document.getElementById("btnSound");
+const avaStart  = document.getElementById("avaStart");
+const avaOver   = document.getElementById("avaOver");
+
+/* ---------- Утилиты ---------- */
+const TAU = Math.PI * 2;
+const clamp = (v,a,b) => v < a ? a : (v > b ? b : v);
+const rnd = (a,b) => a + Math.random() * (b - a);
+const ri  = (a,b) => Math.floor(rnd(a, b + 1));
+const pad5 = n => String(Math.floor(n)).padStart(5, "0");
+
+function rrect(c, x, y, w, h, r){
+  r = Math.min(r, Math.abs(w)/2, Math.abs(h)/2);
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y,     x + w, y + h, r);
+  c.arcTo(x + w, y + h, x,     y + h, r);
+  c.arcTo(x,     y + h, x,     y,     r);
+  c.arcTo(x,     y,     x + w, y,     r);
+  c.closePath();
+}
+function lerp(a,b,t){ return a + (b - a) * t; }
+function mixRGB(c1, c2, t){
+  return "rgb(" + Math.round(lerp(c1[0],c2[0],t)) + "," +
+                  Math.round(lerp(c1[1],c2[1],t)) + "," +
+                  Math.round(lerp(c1[2],c2[2],t)) + ")";
+}
+/* столкновение круг <-> прямоугольник */
+function hitCircleRect(cx, cy, cr, rx, ry, rw, rh){
+  const nx = clamp(cx, rx, rx + rw);
+  const ny = clamp(cy, ry, ry + rh);
+  const dx = cx - nx, dy = cy - ny;
+  return dx*dx + dy*dy < cr*cr;
+}
+
+/* ---------- Палитра день/ночь ---------- */
+const DAY = { sky:[247,247,247], ink:[83,83,83],  cac:[74,124,47],  cloud:[220,222,226] };
+const NIGHT={ sky:[11,16,34],    ink:[216,219,230],cac:[92,140,102], cloud:[42,50,78] };
+
+/* ---------- Звук (Web Audio API, без файлов) ---------- */
+const Snd = {
+  ctx:null, on: LS.get(K_SND,"1") === "1",
+  init(){
+    if (this.ctx) { if (this.ctx.state === "suspended") this.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try { this.ctx = new AC(); } catch(e){ this.ctx = null; }
+  },
+  tone(f0, f1, dur, type, vol){
+    if (!this.on || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = type || "square";
+    o.frequency.setValueAtTime(f0, t);
+    if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(40,f1), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol || 0.16, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.ctx.destination);
+    o.start(t); o.stop(t + dur + 0.03);
+  },
+  jump(){ this.tone(420, 760, 0.13, "square", 0.13); },
+  land(){ this.tone(180, 120, 0.06, "sine",   0.07); },
+  point(){ this.tone(880, 880, 0.07, "square", 0.10);
+           setTimeout(() => this.tone(1320, 1320, 0.10, "square", 0.10), 90); },
+  die(){   this.tone(400, 300, 0.10, "square", 0.17);
+           setTimeout(() => this.tone(260, 70, 0.42, "sawtooth", 0.17), 95); }
+};
+function syncSoundBtn(){ btnSound.textContent = Snd.on ? "🔊" : "🔇"; }
+syncSoundBtn();
+
+/* ---------- Картинки ---------- */
+const playerImg = new Image();
+let playerReady = false;
+playerImg.onload = () => { playerReady = true; };
+playerImg.onerror = () => { playerReady = false; };
+
+const birdImg = new Image();
+let birdReady = false;
+birdImg.onload = () => { birdReady = true; };
+birdImg.src = BIRD_SRC;
+
+function setPlayerSrc(src, custom){
+  playerReady = false;
+  playerImg.src = src;
+  avaStart.src = src; avaOver.src = src;
+  document.getElementById("btnReset1").hidden = !custom;
+  document.getElementById("btnReset2").hidden = !custom;
+}
+setPlayerSrc(LS.get(K_IMG, DEFAULT_PLAYER), !!LS.get(K_IMG, null));
+
+/* ---------- Размеры мира ---------- */
+let W = 0, H = 0, DPR = 1, R = 28, groundY = 0, playerX = 0, S = 0;
+
+function layout(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+  W = Math.max(1, window.innerWidth);
+  H = Math.max(1, window.innerHeight);
+  cv.width  = Math.round(W * DPR);
+  cv.height = Math.round(H * DPR);
+  cv.style.width = W + "px";
+  cv.style.height = H + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+  S = Math.min(W, H);
+  const prevGround = groundY;
+  R = clamp(S * 0.09, 20, 50);
+  groundY = H - Math.max(42, H * 0.16);
+  playerX = Math.max(W * 0.13, R * 1.7);
+
+  // масштабируем уже летящих птиц под новую землю
+  if (prevGround > 0 && prevGround !== groundY){
+    const d = groundY - prevGround;
+    for (const o of obstacles) if (o.type === "bird") o.y += d;
+  }
+  buildStars();
+  physics();
+}
+
+/* ---------- Физика (всё привязано к радиусу игрока) ---------- */
+let V0 = 0, G = 0, HOLD_G = 0, SPEED0 = 0, SPEEDMAX = 0;
+function physics(){
+  const HTAP = 2.55 * R;      // высота обычного прыжка
+  const TUP  = 0.38;          // время до вершины
+  V0 = 2 * HTAP / TUP;
+  G  = V0 / TUP;
+  HOLD_G = G * 0.5;           // пока держим палец — гравитация слабее
+  SPEED0   = 8.8  * R;
+  SPEEDMAX = 19.0 * R;
+}
+const HOLD_MAX = 0.34;        // сек, максимум «удержания»
+const LIFT = 1.48;            // центр круга поднят над землёй на LIFT*R — под ним ноги
+
+/* ---------- Состояние ---------- */
+const MENU = 0, PLAY = 1, OVER = 2;
+let state = MENU;
+
+let py = 0, vy = 0, onGround = true, holding = false, holdT = 0;
+let runT = 0, bodyAngle = 0;
+let speed = 0, dist = 0, score = 0, hi = parseInt(LS.get(K_HI, "0"), 10) || 0;
+let obstacles = [], clouds = [], specks = [], stars = [];
+let spawnIn = 0, nightPhase = 0, milestone = 0, overAt = 0, shake = 0;
+let birdsUnlocked = false;
+
+/* ---------- Фон ---------- */
+function buildStars(){
+  stars = [];
+  const n = Math.round((W * H) / 14000);
+  for (let i = 0; i < n; i++){
+    stars.push({
+      x: Math.random() * W,
+      y: Math.random() * (groundY * 0.92),
+      r: rnd(0.6, 1.7),
+      p: Math.random() * TAU,
+      sp: rnd(0.4, 1.6)
+    });
+  }
+}
+function spawnCloud(x){
+  clouds.push({ x: x, y: rnd(groundY * 0.08, groundY * 0.72), s: rnd(0.55, 1.25) });
+}
+function initBackground(){
+  clouds = [];
+  const n = clamp(Math.round((W * H) / 70000), 3, 8);
+  for (let i = 0; i < n; i++) spawnCloud(Math.random() * W);
+  specks = [];
+  for (let i = 0; i < Math.round(W / 26) + 8; i++){
+    specks.push({ x: Math.random() * W, o: rnd(2, 9), len: rnd(2, 10) });
+  }
+}
+
+/* ---------- Препятствия ---------- */
+function spawnCactusGroup(){
+  const count = Math.random() < 0.55 ? 1 : (Math.random() < 0.72 ? 2 : 3);
+  const items = [];
+  let dx = 0;
+  for (let i = 0; i < count; i++){
+    const w = rnd(0.62, 1.05) * R;
+    const h = rnd(1.15, 2.45) * R;
+    items.push({
+      dx: dx, w: w, h: h,
+      armL: Math.random() < 0.55 && h > 1.45 * R,
+      armR: Math.random() < 0.55 && h > 1.45 * R,
+      armY: rnd(0.42, 0.62)
+    });
+    dx += w + rnd(0.16, 0.42) * R;
+  }
+  obstacles.push({ type:"cactus", x: W + R, items: items, w: dx });
+}
+function spawnBird(){
+  // только две честные высоты: низко — перепрыгнуть, высоко — пробежать под ней
+  const low = Math.random() < 0.5;
+  const size = rnd(0.62, 0.8) * R;
+  const y = low ? groundY - R * rnd(0.92, 1.18)
+                : groundY - R * rnd(4.05, 4.55);   // высоко: под ней честно пробегаешь
+  obstacles.push({ type:"bird", x: W + R * 1.5, y: y, size: size, flap: Math.random() * TAU, low: low });
+}
+function scheduleSpawn(){
+  // расстояние задаём во времени, чтобы сложность росла честно
+  const t = clamp((speed - SPEED0) / (SPEEDMAX - SPEED0), 0, 1);
+  const minT = lerp(0.92, 0.70, t);
+  const maxT = lerp(1.85, 1.30, t);
+  spawnIn = speed * rnd(minT, maxT);
+}
+
+/* ---------- Игровой цикл ---------- */
+function reset(){
+  obstacles = [];
+  py = 0; vy = 0; onGround = true; holding = false; holdT = 0;
+  runT = 0; bodyAngle = 0;
+  speed = SPEED0; dist = 0; score = 0;
+  milestone = 0; shake = 0; birdsUnlocked = false;
+  nightPhase = 0;
+  initBackground();
+  spawnIn = W * 0.75;
+}
+
+function startGame(){
+  Snd.init();
+  physics();
+  reset();
+  state = PLAY;
+  startEl.classList.add("hidden");
+  overEl.classList.add("hidden");
+  jump(); // первый тап сразу прыгает — приятнее
+}
+
+function gameOver(){
+  state = OVER;
+  overAt = performance.now();
+  shake = 1;
+  Snd.die();
+  const sc = Math.floor(score);
+  const isRec = sc > hi;
+  if (isRec){ hi = sc; LS.set(K_HI, String(hi)); }
+  overStats.innerHTML = "СЧЁТ " + pad5(sc) + "<br>РЕКОРД " + pad5(hi);
+  newRecEl.hidden = !isRec;
+  overEl.classList.remove("hidden");
+  if (navigator.vibrate) { try { navigator.vibrate(60); } catch(e){} }
+}
+
+function jump(){
+  if (state !== PLAY) return;
+  if (!onGround) return;               // в воздухе прыгать нельзя
+  vy = -V0;
+  onGround = false;
+  holding = true;
+  holdT = 0;
+  Snd.jump();
+}
+
+function update(dt){
+  runT += dt;
+
+  /* --- скорость и очки --- */
+  const ramp = 1 - Math.exp(-score / 900);
+  speed = SPEED0 + (SPEEDMAX - SPEED0) * ramp;
+  dist += speed * dt;
+  score += dt * (speed / R) * 2.6;
+
+  if (score >= 500) birdsUnlocked = true;
+
+  /* --- звук каждые 100 очков --- */
+  const m = Math.floor(score / 100);
+  if (m > milestone){
+    milestone = m;
+    Snd.point();
+    scoreEl.classList.add("pop");
+    setTimeout(() => scoreEl.classList.remove("pop"), 260);
+  }
+
+  /* --- день / ночь каждые 700 очков --- */
+  const wantNight = (Math.floor(score / 700) % 2) === 1 ? 1 : 0;
+  nightPhase += clamp(wantNight - nightPhase, -1, 1) * Math.min(1, dt * 1.3);
+  if (Math.abs(wantNight - nightPhase) < 0.003) nightPhase = wantNight;
+  document.body.classList.toggle("night", nightPhase > 0.5);
+
+  /* --- прыжок --- */
+  if (!onGround){
+    holdT += dt;
+    const g = (holding && vy < 0 && holdT < HOLD_MAX) ? HOLD_G : G;
+    vy += g * dt;
+    py += vy * dt;
+    bodyAngle = clamp(vy / (V0 * 1.8), -0.42, 0.42) * -1;
+    if (py >= 0){
+      py = 0; vy = 0; onGround = true; holding = false;
+      Snd.land();
+    }
+  } else {
+    // «живой» бег: лёгкое покачивание и подпрыгивание
+    const f = runT * (8 + speed / R);
+    bodyAngle = Math.sin(f) * 0.15;
+    py = -Math.abs(Math.sin(f)) * R * 0.09;
+  }
+
+  /* --- фон --- */
+  for (const c of clouds){
+    c.x -= speed * 0.28 * c.s * dt;
+    if (c.x < -R * 4){ c.x = W + rnd(R * 2, W * 0.6); c.y = rnd(groundY * 0.08, groundY * 0.72); c.s = rnd(0.55, 1.25); }
+  }
+  for (const s of specks){
+    s.x -= speed * dt;
+    if (s.x < -12){ s.x = W + rnd(0, 60); s.o = rnd(2, 9); s.len = rnd(2, 10); }
+  }
+
+  /* --- появление препятствий --- */
+  spawnIn -= speed * dt;
+  if (spawnIn <= 0){
+    let wasBird = false;
+    if (birdsUnlocked && Math.random() < 0.3){ spawnBird(); wasBird = true; }
+    else spawnCactusGroup();
+    scheduleSpawn();
+    // после птицы даём больше воздуха: нельзя ставить игрока между птицей и кактусом
+    if (wasBird) spawnIn *= 1.3;
+  }
+
+  /* --- движение и столкновения --- */
+  const pcx = playerX;
+  const pcy = groundY - R * LIFT + py;
+  const pr  = R * 0.76;                   // хитбокс чуть меньше картинки
+
+  for (let i = obstacles.length - 1; i >= 0; i--){
+    const o = obstacles[i];
+    if (o.type === "cactus"){
+      o.x -= speed * dt;
+      if (o.x + o.w < -R){ obstacles.splice(i, 1); continue; }
+      for (const it of o.items){
+        const bx = o.x + it.dx + it.w * 0.13;
+        const bw = it.w * 0.74;
+        const by = groundY - it.h + it.h * 0.06;
+        const bh = it.h * 0.94;
+        if (hitCircleRect(pcx, pcy, pr, bx, by, bw, bh)){ gameOver(); return; }
+      }
+    } else {
+      o.x -= speed * 1.22 * dt;
+      o.flap += dt * 11;
+      if (o.x < -R * 3){ obstacles.splice(i, 1); continue; }
+      const dx = pcx - o.x, dy = pcy - o.y;
+      const rr = pr + o.size * 0.74;
+      if (dx*dx + dy*dy < rr*rr){ gameOver(); return; }
+    }
+  }
+}
+
+/* ---------- Отрисовка ---------- */
+function drawCloud(c){
+  const r = R * 0.5 * c.s;
+  ctx.beginPath();
+  ctx.arc(c.x,             c.y,             r,        0, TAU);
+  ctx.arc(c.x + r * 1.05,  c.y + r * 0.18,  r * 0.78, 0, TAU);
+  ctx.arc(c.x - r * 1.0,   c.y + r * 0.22,  r * 0.68, 0, TAU);
+  ctx.arc(c.x + r * 0.15,  c.y - r * 0.45,  r * 0.66, 0, TAU);
+  ctx.fill();
+}
+
+function drawCactus(o, col){
+  ctx.fillStyle = col;
+  for (const it of o.items){
+    const x = o.x + it.dx, w = it.w, h = it.h;
+    const tw = w * 0.58;                 // ствол
+    const tx = x + (w - tw) / 2;
+    rrect(ctx, tx, groundY - h, tw, h + 2, tw * 0.46); ctx.fill();
+
+    const aw = tw * 0.62;                // толщина «руки»
+    const ay = groundY - h * it.armY;    // высота крепления
+    const up = h * 0.30;                 // длина вертикальной части
+    if (it.armL){
+      const ex = tx - w * 0.40;
+      rrect(ctx, ex, ay, (tx + tw * 0.5) - ex, aw, aw * 0.5); ctx.fill();
+      rrect(ctx, ex, ay - up, aw, up + aw, aw * 0.5); ctx.fill();
+    }
+    if (it.armR){
+      const ay2 = ay + h * 0.10;
+      const ex = tx + tw + w * 0.40 - aw;
+      rrect(ctx, tx + tw * 0.5, ay2, (ex + aw) - (tx + tw * 0.5), aw, aw * 0.5); ctx.fill();
+      rrect(ctx, ex, ay2 - up, aw, up + aw, aw * 0.5); ctx.fill();
+    }
+  }
+}
+
+function drawBird(o, ink){
+  const s = o.size;
+  const wing = Math.sin(o.flap);
+  ctx.save();
+  ctx.translate(o.x, o.y);
+
+  // крылья
+  ctx.fillStyle = ink;
+  for (const dir of [-1, 1]){
+    ctx.save();
+    ctx.scale(dir, 1);
+    ctx.rotate(wing * 0.55 - 0.15);
+    ctx.beginPath();
+    ctx.moveTo(s * 0.55, -s * 0.05);
+    ctx.quadraticCurveTo(s * 1.75, -s * 0.72, s * 2.15, -s * 0.05);
+    ctx.quadraticCurveTo(s * 1.6,  s * 0.30,  s * 0.55, s * 0.24);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // фото-голова в круге
+  ctx.beginPath(); ctx.arc(0, 0, s, 0, TAU);
+  if (birdReady){
+    ctx.save(); ctx.clip();
+    ctx.drawImage(birdImg, -s, -s, s * 2, s * 2);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = ink; ctx.fill();
+  }
+  ctx.lineWidth = Math.max(1.6, s * 0.11);
+  ctx.strokeStyle = ink;
+  ctx.beginPath(); ctx.arc(0, 0, s, 0, TAU); ctx.stroke();
+  ctx.restore();
+}
+
+function drawPlayer(ink){
+  const cy = groundY - R * LIFT + py;        // центр фото-круга
+  const f  = runT * (8 + speed / R);
+
+  // тень на земле
+  const lift = clamp(-py / (R * 2.6), 0, 1);
+  ctx.save();
+  ctx.globalAlpha = 0.18 * (1 - lift * 0.75);
+  ctx.fillStyle = "#000";
+  ctx.beginPath();
+  ctx.ellipse(playerX, groundY + R * 0.06, R * (0.72 - lift * 0.26), R * 0.15, 0, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+
+  // ноги (рисуем до круга, но они торчат ниже него)
+  ctx.strokeStyle = ink;
+  ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(2.5, R * 0.17);
+  const hipY = cy + R * 0.66;
+  const hipX = R * 0.36;
+  if (onGround){
+    // бег: ноги по очереди отрываются от земли (лицо смотрит на нас, поэтому шаг «вверх-вниз»)
+    const la = Math.max(0, Math.sin(f)), rb = Math.max(0, Math.sin(f + Math.PI));
+    ctx.beginPath();
+    ctx.moveTo(playerX - hipX, hipY);
+    ctx.lineTo(playerX - hipX + la * R * 0.14, groundY - R * 0.02 - la * R * 0.30);
+    ctx.moveTo(playerX + hipX, hipY);
+    ctx.lineTo(playerX + hipX + rb * R * 0.14, groundY - R * 0.02 - rb * R * 0.30);
+    ctx.stroke();
+  } else {
+    // в прыжке ноги поджаты вперёд
+    ctx.beginPath();
+    ctx.moveTo(playerX - hipX, hipY); ctx.lineTo(playerX - hipX * 0.15, hipY + R * 0.64);
+    ctx.moveTo(playerX + hipX, hipY); ctx.lineTo(playerX + hipX * 1.35, hipY + R * 0.46);
+    ctx.stroke();
+  }
+
+  // фото в круге + обводка
+  ctx.save();
+  ctx.translate(playerX, cy);
+  ctx.rotate(bodyAngle);
+  ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU);
+  if (playerReady){
+    ctx.save(); ctx.clip();
+    ctx.drawImage(playerImg, -R, -R, R * 2, R * 2);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = ink; ctx.fill();
+  }
+  ctx.lineWidth = Math.max(2, R * 0.095);
+  ctx.strokeStyle = ink;
+  ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.stroke();
+  ctx.restore();
+}
+
+function render(){
+  const t = nightPhase;
+  const sky   = mixRGB(DAY.sky,   NIGHT.sky,   t);
+  const ink   = mixRGB(DAY.ink,   NIGHT.ink,   t);
+  const cac   = mixRGB(DAY.cac,   NIGHT.cac,   t);
+  const cloud = mixRGB(DAY.cloud, NIGHT.cloud, t);
+
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  if (shake > 0){
+    const s = shake * R * 0.22;
+    ctx.translate(rnd(-s, s), rnd(-s, s));
+  }
+
+  // звёзды
+  if (t > 0.02){
+    ctx.fillStyle = "#fff";
+    for (const st of stars){
+      ctx.globalAlpha = t * (0.35 + 0.65 * (0.5 + 0.5 * Math.sin(runT * st.sp + st.p)));
+      ctx.beginPath(); ctx.arc(st.x, st.y, st.r, 0, TAU); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // луна
+    ctx.globalAlpha = t;
+    ctx.fillStyle = "#f2f3ea";
+    ctx.beginPath(); ctx.arc(W * 0.82, groundY * 0.22, R * 0.72, 0, TAU); ctx.fill();
+    ctx.fillStyle = sky;
+    ctx.beginPath(); ctx.arc(W * 0.82 - R * 0.30, groundY * 0.22 - R * 0.16, R * 0.66, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // облака
+  ctx.fillStyle = cloud;
+  for (const c of clouds) drawCloud(c);
+
+  // земля
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = Math.max(1.5, R * 0.065);
+  ctx.beginPath();
+  ctx.moveTo(0, groundY + 0.5);
+  ctx.lineTo(W, groundY + 0.5);
+  ctx.stroke();
+  ctx.lineWidth = Math.max(1, R * 0.05);
+  ctx.beginPath();
+  for (const s of specks){
+    ctx.moveTo(s.x, groundY + s.o);
+    ctx.lineTo(s.x + s.len, groundY + s.o);
+  }
+  ctx.stroke();
+
+  // препятствия
+  for (const o of obstacles){
+    if (o.type === "cactus") drawCactus(o, cac);
+    else drawBird(o, ink);
+  }
+
+  drawPlayer(ink);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+
+/* ---------- Счёт в HUD ---------- */
+let lastShown = -1;
+function paintScore(){
+  const s = Math.floor(score);
+  if (s === lastShown) return;
+  lastShown = s;
+  scoreEl.innerHTML = '<span class="hi">HI ' + pad5(hi) + "</span>&nbsp;&nbsp;" + pad5(s);
+}
+
+/* ---------- requestAnimationFrame ---------- */
+let last = 0;
+function frame(now){
+  requestAnimationFrame(frame);
+  if (!last) last = now;
+  let dt = (now - last) / 1000;
+  last = now;
+  if (dt > 1/25) dt = 1/25;          // страховка после сворачивания вкладки
+  if (dt <= 0) return;
+
+  if (state === PLAY) update(dt);
+  else if (state === MENU){
+    runT += dt;
+    for (const c of clouds) c.x -= 14 * c.s * dt;
+    if (clouds.length) for (const c of clouds) if (c.x < -R*4) c.x = W + rnd(0, W*0.4);
+  }
+  if (shake > 0) shake = Math.max(0, shake - dt * 3.2);
+
+  render();
+  paintScore();
+}
+
+/* ---------- Ввод ---------- */
+function press(){
+  Snd.init();
+  if (state === MENU) { startGame(); return; }
+  if (state === PLAY) { jump(); return; }
+  if (state === OVER && performance.now() - overAt > 450) startGame();
+}
+function release(){ holding = false; }
+
+// тач / мышь через Pointer Events
+window.addEventListener("pointerdown", e => {
+  if (e.target.closest("button, input, label")) return;   // кнопки работают как кнопки
+  e.preventDefault();
+  press();
+}, { passive:false });
+window.addEventListener("pointerup",     release);
+window.addEventListener("pointercancel", release);
+
+// запасной путь для старых браузеров без Pointer Events
+if (!window.PointerEvent){
+  window.addEventListener("touchstart", e => {
+    if (e.target.closest("button, input, label")) return;
+    e.preventDefault(); press();
+  }, { passive:false });
+  window.addEventListener("touchend", release);
+}
+
+// блокируем прокрутку, зум и выделение
+document.addEventListener("touchmove", e => {
+  if (e.target.closest("button, input, label")) return;
+  e.preventDefault();
+}, { passive:false });
+document.addEventListener("gesturestart",  e => e.preventDefault());
+document.addEventListener("gesturechange", e => e.preventDefault());
+document.addEventListener("dblclick",      e => e.preventDefault());
+document.addEventListener("contextmenu",   e => e.preventDefault());
+
+// клавиатура (для проверки на компьютере)
+window.addEventListener("keydown", e => {
+  if (e.code === "Space" || e.code === "ArrowUp" || e.code === "Enter"){
+    e.preventDefault();
+    if (!e.repeat) press();
+  }
+});
+window.addEventListener("keyup", e => {
+  if (e.code === "Space" || e.code === "ArrowUp" || e.code === "Enter") release();
+});
+
+/* ---------- Кнопки ---------- */
+btnSound.addEventListener("click", e => {
+  e.stopPropagation();
+  Snd.on = !Snd.on;
+  LS.set(K_SND, Snd.on ? "1" : "0");
+  syncSoundBtn();
+  if (Snd.on){ Snd.init(); Snd.point(); }
+});
+document.getElementById("btnAgain").addEventListener("click", e => { e.stopPropagation(); startGame(); });
+for (const id of ["btnPhoto1","btnPhoto2"]){
+  document.getElementById(id).addEventListener("click", e => { e.stopPropagation(); fileInput.click(); });
+}
+for (const id of ["btnReset1","btnReset2"]){
+  document.getElementById(id).addEventListener("click", e => {
+    e.stopPropagation();
+    LS.del(K_IMG);
+    setPlayerSrc(DEFAULT_PLAYER, false);
+  });
+}
+
+/* ---------- Загрузка фото из галереи ---------- */
+fileInput.addEventListener("change", () => {
+  const f = fileInput.files && fileInput.files[0];
+  if (!f) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      // обрезаем по центру в квадрат и уменьшаем — чтобы влезло в localStorage
+      const N = 256;
+      const c = document.createElement("canvas");
+      c.width = c.height = N;
+      const g = c.getContext("2d");
+      const side = Math.min(img.width, img.height);
+      g.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, N, N);
+      let url;
+      try { url = c.toDataURL("image/jpeg", 0.85); }
+      catch(err){ url = String(fr.result); }        // если canvas «запятнан» — берём как есть
+      setPlayerSrc(url, true);
+      if (!LS.set(K_IMG, url)) alert("Фото применено, но сохранить его не удалось — после перезапуска вернётся стандартное.");
+    };
+    img.onerror = () => alert("Не удалось открыть это изображение.");
+    img.src = String(fr.result);
+  };
+  fr.onerror = () => alert("Не удалось прочитать файл.");
+  fr.readAsDataURL(f);
+  fileInput.value = "";
+});
+
+/* ---------- Старт ---------- */
+window.addEventListener("resize", layout);
+window.addEventListener("orientationchange", () => setTimeout(layout, 120));
+if (window.visualViewport) window.visualViewport.addEventListener("resize", layout);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) last = 0; });
+
+layout();
+initBackground();
+paintScore();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
