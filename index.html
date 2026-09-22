@@ -53,20 +53,31 @@
 
   .overlay{
     position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;gap:14px;text-align:center;
-    padding:calc(env(safe-area-inset-top) + 56px) 20px calc(env(safe-area-inset-bottom) + 20px);
+    align-items:center;justify-content:center;gap:11px;text-align:center;
+    overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding:calc(env(safe-area-inset-top) + 52px) 16px calc(env(safe-area-inset-bottom) + 24px);
     color:#535353;background:rgba(247,247,247,.82);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
     animation:fade .25s ease;
   }
   body.night .overlay{color:#e6e8f2;background:rgba(9,13,30,.8)}
   @keyframes fade{from{opacity:0}to{opacity:1}}
   .overlay.hidden{display:none}
-  .title{font:800 clamp(22px,6.4vmin,40px)/1.1 inherit;letter-spacing:.01em;text-wrap:balance}
+  .title{
+    font:800 clamp(22px,6.4vmin,40px)/1.1 inherit;letter-spacing:.01em;text-wrap:balance;
+    text-shadow:0 2px 0 rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.12);
+  }
+  body.night .title{text-shadow:0 2px 0 rgba(0,0,0,.4), 0 8px 28px rgba(120,160,255,.28)}
   .sub{font:600 clamp(14px,3.9vmin,20px)/1.45 inherit;opacity:.9}
   .tip{font:500 clamp(11px,3vmin,14px)/1.5 inherit;opacity:.6;max-width:28em}
   .stats{font:700 clamp(14px,4vmin,20px)/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.06em}
-  .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}
+  .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center}
   .btn.big{font-size:clamp(15px,4vmin,19px);padding:13px 24px;background:#535353;color:#f7f7f7}
+  .btn.play{
+    background:linear-gradient(180deg,#34b45c,#248a45);border-color:#1d7038;color:#fff;
+    font-size:clamp(17px,4.6vmin,22px);padding:15px 38px;letter-spacing:.08em;
+    box-shadow:0 6px 20px rgba(36,138,69,.38);
+  }
+  body.night .btn.play{background:linear-gradient(180deg,#3fd06a,#22a04f);border-color:#7ee6a0;color:#06210f}
   body.night .btn.big{background:#e6e8f2;color:#0b1022;border-color:#e6e8f2}
   .avatar{
     width:clamp(64px,17vmin,104px);height:clamp(64px,17vmin,104px);border-radius:50%;
@@ -74,6 +85,30 @@
   }
   .pulse{animation:pulse 1.5s ease-in-out infinite}
   @keyframes pulse{0%,100%{opacity:.95;transform:translateY(0)}50%{opacity:.5;transform:translateY(-4px)}}
+  /* --- выбор режима и сложности --- */
+  .pickRow{display:flex;gap:6px;justify-content:center;width:min(94vw,400px)}
+  .chip{
+    -webkit-appearance:none;appearance:none;cursor:pointer;pointer-events:auto;
+    border:2px solid currentColor;border-radius:13px;background:rgba(255,255,255,.5);
+    color:inherit;padding:8px 9px;font:700 clamp(11px,3vmin,13px)/1.15 inherit;
+    display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;flex:1 1 0;max-width:110px;
+    transition:transform .1s, background .18s, border-color .18s;
+  }
+  body.night .chip{background:rgba(14,20,44,.5)}
+  .chip:active{transform:scale(.94)}
+  .chip .em{font-size:1.35em;line-height:1}
+  .chip .sub{font-weight:600;font-size:.76em;opacity:.65}
+  .chip[aria-pressed="true"]{background:#2e9b4f;border-color:#2e9b4f;color:#fff;box-shadow:0 4px 14px rgba(46,155,79,.35)}
+  body.night .chip[aria-pressed="true"]{background:#49c46f;border-color:#49c46f;color:#07121f}
+  .chip[aria-pressed="true"] .sub{opacity:.85}
+  .rowLabel{font:700 clamp(10px,2.7vmin,12px)/1 inherit;letter-spacing:.14em;text-transform:uppercase;opacity:.5}
+
+  #hearts{font-size:clamp(14px,3.8vmin,19px);line-height:1.1;letter-spacing:.06em;text-align:right;min-height:1.1em}
+  #attempts{font:700 clamp(10px,2.8vmin,13px)/1.4 ui-monospace,Menlo,monospace;letter-spacing:.08em;
+            text-align:right;opacity:.55;color:#535353}
+  body.night #attempts{color:#d9dbe6}
+  .hud .right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;pointer-events:none}
+
   /* --- ник, рейтинг, бонус --- */
   .field{display:flex;flex-direction:column;gap:6px;align-items:center;width:min(88vw,320px)}
   #nickInput{
@@ -130,7 +165,11 @@
   <div class="left">
     <button class="btn icon" id="btnSound" aria-label="Звук">🔊</button>
   </div>
-  <div id="score"><span class="hi">HI 00000</span>&nbsp;&nbsp;00000</div>
+  <div class="right">
+    <div id="score"><span class="hi">HI 00000</span>&nbsp;&nbsp;00000</div>
+    <div id="hearts"></div>
+    <div id="attempts"></div>
+  </div>
 </div>
 
 <button class="btn" id="btnBonus" aria-label="Использовать бонус"><span class="ic">🚀</span><span class="left"></span></button>
@@ -157,13 +196,20 @@
 <div class="overlay" id="startScreen">
   <img class="avatar" id="avaStart" alt="">
   <div class="title">СЕРГЕЙ ЖИРНЫЙ</div>
-  <div class="sub pulse">Нажми, чтобы начать</div>
-  <div class="tip">Тап — прыжок · Долгое нажатие — прыжок выше<br>Прыгать можно только с земли</div>
+  <button class="btn play" id="btnPlay">▶ ИГРАТЬ</button>
+  <div class="rowLabel">Режим</div>
+  <div class="pickRow" id="modePick"></div>
+  <div class="rowLabel">Сложность</div>
+  <div class="pickRow" id="diffPick"></div>
+  <div class="tip" id="modeTip"></div>
+  <div class="tip" id="ctrlTip"></div>
   <div class="lead" id="leadBox" hidden></div>
   <div class="bonusRow" id="bonusPick" hidden>
     <button class="btn bonusBtn" data-bonus="jet"  aria-pressed="false">🚀 Джетпак</button>
-    <button class="btn bonusBtn" data-bonus="high" aria-pressed="false">🦘 Прыжок</button>
+    <button class="btn bonusBtn" data-bonus="high" aria-pressed="false">🦘 Выс. прыжок</button>
     <button class="btn bonusBtn" data-bonus="fast" aria-pressed="false">⚡ Скорость</button>
+    <button class="btn bonusBtn" data-bonus="dbl"  aria-pressed="false">🔁 Двойной</button>
+    <button class="btn bonusBtn" data-bonus="life" aria-pressed="false">❤️ 3 жизни</button>
   </div>
   <div class="row">
     <button class="btn" id="btnBoard1">🏆 Рейтинг</button>
@@ -212,7 +258,10 @@ const LS = {
   del(k){ try { localStorage.removeItem(k); } catch(e){} }
 };
 const K_HI = "photorunner.hi", K_IMG = "photorunner.photo", K_SND = "photorunner.sound";
-const K_NICK = "photorunner.nick", K_BOARD = "photorunner.board", K_BONUS = "photorunner.bonus";
+const K_NICK = "photorunner.nick", K_BONUS = "photorunner.bonus";
+const K_MODE = "photorunner.mode", K_DIFF = "photorunner.diff";
+const boardKey = m => "photorunner.board." + m;   // у каждого режима свой рейтинг
+const hiKey    = m => "photorunner.hi." + m;
 
 /* ---------- DOM ---------- */
 const cv = document.getElementById("cv");
@@ -320,18 +369,18 @@ let nick = LS.get(K_NICK, "") || "";
 
 const Board = {
   MAX: 50,
-  list(){
+  list(m){
     try {
-      const v = JSON.parse(LS.get(K_BOARD, "[]"));
+      const v = JSON.parse(LS.get(boardKey(m || mode), "[]"));
       return Array.isArray(v) ? v.filter(r => r && typeof r.nick === "string" && isFinite(r.score)) : [];
     } catch(e){ return []; }
   },
-  save(rows){ LS.set(K_BOARD, JSON.stringify(rows.slice(0, this.MAX))); },
+  save(rows, m){ LS.set(boardKey(m || mode), JSON.stringify(rows.slice(0, this.MAX))); },
   /** Записывает результат, если он лучше прежнего. Возвращает true, если рекорд игрока обновился. */
-  submit(name, sc){
+  submit(name, sc, m){
     if (!name) return false;
     sc = Math.floor(sc);
-    const rows = this.list();
+    const rows = this.list(m);
     const key = name.toLowerCase();
     const i = rows.findIndex(r => r.nick.toLowerCase() === key);
     let better = true;
@@ -343,24 +392,41 @@ const Board = {
     }
     if (better){
       rows.sort((a, b) => b.score - a.score || a.at - b.at);
-      this.save(rows);
+      this.save(rows, m);
     }
     return better;
   },
-  rank(name){
+  rank(name, m){
     if (!name) return 0;
     const key = name.toLowerCase();
-    const i = this.list().findIndex(r => r.nick.toLowerCase() === key);
+    const i = this.list(m).findIndex(r => r.nick.toLowerCase() === key);
     return i < 0 ? 0 : i + 1;
   },
-  isFirst(name){ return this.rank(name) === 1; }
+  isFirst(name, m){ return this.rank(name, m) === 1; }
 };
+
+/* ---------- Режимы и сложность ---------- */
+const MODES = {
+  run: { icon: "🏃", name: "Раннер",   tip: "классика: прыгай через кактусы" },
+  geo: { icon: "🔺", name: "Геометри", tip: "в стиле Geometry Dash: шипы и платформы" }
+};
+const DIFFS = [
+  { icon: "🟢", name: "Лёгкий",   spd: 0.78, gap: 1.28, size: 0.90 },
+  { icon: "🔵", name: "Обычный",  spd: 1.00, gap: 1.00, size: 1.00 },
+  { icon: "🟠", name: "Сложный",  spd: 1.22, gap: 0.84, size: 1.06 },
+  { icon: "🔴", name: "Безумный", spd: 1.45, gap: 0.70, size: 1.12 }
+];
+let mode = MODES[LS.get(K_MODE, "run")] ? LS.get(K_MODE, "run") : "run";
+let diff = clamp(parseInt(LS.get(K_DIFF, "1"), 10) || 0, 0, DIFFS.length - 1);
+const D = () => DIFFS[diff];
 
 /* ---------- Бонус лидера ---------- */
 const BONUSES = {
-  jet:  { icon: "🚀", name: "Джетпак",  tip: "держи палец — летишь над всем" },
-  high: { icon: "🦘", name: "Прыжок",   tip: "прыжок в 1.6 раза выше" },
-  fast: { icon: "⚡", name: "Скорость", tip: "очки ×3 и сносишь всё на пути" }
+  jet:  { icon: "🚀", name: "Джетпак",   tip: "держи палец — летишь над всем",  timed: true  },
+  high: { icon: "🦘", name: "Выс. прыжок", tip: "прыжок в 1.6 раза выше",       timed: true  },
+  fast: { icon: "⚡", name: "Скорость",  tip: "очки ×3 и сносишь всё на пути",  timed: true  },
+  dbl:  { icon: "🔁", name: "Двойной",   tip: "второй прыжок прямо в воздухе",  timed: true  },
+  life: { icon: "❤️", name: "3 жизни",   tip: "три ошибки прощаются",           timed: false }
 };
 const BONUS_SEC = 15;
 // «Выше» должно значить именно выше, а НЕ дольше: промежутки между кактусами
@@ -427,6 +493,7 @@ function layout(){
   }
   buildStars();
   physics();
+  geoPhysics();
 }
 
 /* ---------- Физика (всё привязано к радиусу игрока) ---------- */
@@ -437,8 +504,8 @@ function physics(){
   V0 = 2 * HTAP / TUP;
   G  = V0 / TUP;
   HOLD_G = G * 0.5;           // пока держим палец — гравитация слабее
-  SPEED0   = 8.8  * R;
-  SPEEDMAX = 19.0 * R;
+  SPEED0   = 8.8  * R * D().spd;
+  SPEEDMAX = 19.0 * R * D().spd;
 }
 const HOLD_MAX = 0.34;        // сек, максимум «удержания»
 const LIFT = 1.48;            // центр круга поднят над землёй на LIFT*R — под ним ноги
@@ -449,10 +516,48 @@ let state = MENU;
 
 let py = 0, vy = 0, onGround = true, holding = false, holdT = 0;
 let runT = 0, bodyAngle = 0;
-let speed = 0, dist = 0, score = 0, hi = parseInt(LS.get(K_HI, "0"), 10) || 0;
+let speed = 0, dist = 0, score = 0, hi = 0;
+function loadHi(){ hi = parseInt(LS.get(hiKey(mode), "0"), 10) || 0; lastShown = -1; }
 let obstacles = [], clouds = [], specks = [], stars = [];
 let spawnIn = 0, nightPhase = 0, milestone = 0, overAt = 0, shake = 0;
 let birdsUnlocked = false, wasNight = false;
+let lives = 0, invuln = 0, airJumps = 0;
+
+/* ---------- Частицы: пыль от прыжка, брызги от удара ---------- */
+let parts = [];
+function spawnParts(x, y, n, col, spd, up){
+  if (parts.length > 220) parts.splice(0, parts.length - 220);
+  for (let i = 0; i < n; i++){
+    const a = up ? rnd(-Math.PI * 0.95, -Math.PI * 0.05) : rnd(0, TAU);
+    const v = rnd(0.35, 1) * spd;
+    parts.push({
+      x: x, y: y,
+      vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+      r: rnd(R * 0.06, R * 0.16), life: 1, col: col
+    });
+  }
+}
+const burst = (x, y, n, col) => spawnParts(x, y, n, col, R * 9, false);
+const puff  = (x, y, n, col) => spawnParts(x, y, n, col, R * 4, true);
+
+function updateParts(dt){
+  for (let i = parts.length - 1; i >= 0; i--){
+    const p = parts[i];
+    p.vy += G * 0.35 * dt;
+    p.x += (p.vx - speed * 0.25) * dt;
+    p.y += p.vy * dt;
+    p.life -= dt * 1.7;
+    if (p.life <= 0 || p.x < -R) parts.splice(i, 1);
+  }
+}
+function drawParts(){
+  for (const p of parts){
+    ctx.globalAlpha = clamp(p.life, 0, 1) * 0.9;
+    ctx.fillStyle = p.col;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (0.4 + p.life * 0.6), 0, TAU); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
 
 /* ---------- Фон ---------- */
 function buildStars(){
@@ -488,7 +593,7 @@ function spawnCactusGroup(){
   let dx = 0;
   for (let i = 0; i < count; i++){
     const w = rnd(0.62, 1.05) * R;
-    const h = rnd(1.15, 2.45) * R;
+    const h = rnd(1.15, 2.45) * R * D().size;
     items.push({
       dx: dx, w: w, h: h,
       armL: Math.random() < 0.55 && h > 1.45 * R,
@@ -515,8 +620,8 @@ function spawnBird(){
 function scheduleSpawn(){
   // расстояние задаём во времени, чтобы сложность росла честно
   const t = clamp((speed - SPEED0) / (SPEEDMAX - SPEED0), 0, 1);
-  const minT = lerp(0.92, 0.70, t);
-  const maxT = lerp(1.85, 1.30, t);
+  const minT = lerp(0.92, 0.70, t) * D().gap;
+  const maxT = lerp(1.85, 1.30, t) * D().gap;
   spawnIn = speed * rnd(minT, maxT);
 }
 
@@ -527,6 +632,9 @@ function reset(){
   runT = 0; bodyAngle = 0;
   speed = SPEED0; dist = 0; score = 0;
   milestone = 0; shake = 0; birdsUnlocked = false;
+  lives = 0; invuln = 0; airJumps = 0; parts = [];
+  geoSpin = 0; geoSpinTo = 0;
+  if (mode === "geo"){ geoPhysics(); spawnIn = W * 0.55; }
   nightPhase = 0;
   initBackground();
   spawnIn = W * 0.75;
@@ -539,6 +647,11 @@ function startGame(){
   // бонус даётся только лидеру и только один раз за забег
   bonus.armed = Board.isFirst(nick);
   bonus.used = false; bonus.active = false; bonus.left = 0; bonus.thrust = false;
+  // «3 жизни» не включают кнопкой — они выдаются сразу на весь забег
+  if (bonus.armed && bonus.kind === "life"){ lives = 3; bonus.used = true; }
+  attempts++;
+  paintHud();
+  paintBonus();
   state = PLAY;
   startEl.classList.add("hidden");
   overEl.classList.add("hidden");
@@ -552,7 +665,7 @@ function gameOver(){
   Snd.die();
   const sc = Math.floor(score);
   const isRec = sc > hi;
-  if (isRec){ hi = sc; LS.set(K_HI, String(hi)); }
+  if (isRec){ hi = sc; LS.set(hiKey(mode), String(hi)); }
   const improved = Board.submit(nick, sc);
   const place = Board.rank(nick);
   overStats.innerHTML = "СЧЁТ " + pad5(sc) + "<br>РЕКОРД " + pad5(hi) +
@@ -569,7 +682,14 @@ function gameOver(){
 
 function jump(){
   if (state !== PLAY) return;
-  if (!onGround) return;               // в воздухе прыгать нельзя
+  if (mode === "geo"){ geoJump(); return; }
+  // в воздухе прыгать нельзя — кроме бонуса «Двойной», который даёт один добор
+  const airAllowed = (bonus.active && bonus.kind === "dbl") ? 1 : 0;
+  if (!onGround){
+    if (airJumps >= airAllowed) return;
+    airJumps++;
+    puff(playerX, groundY - R * LIFT + py + R * 0.7, 10, "#8ad6a0");
+  }
   vy = -V0 * (bonus.active && bonus.kind === "high" ? HIGH_JUMP : 1);
   onGround = false;
   holding = true;
@@ -592,6 +712,7 @@ function update(dt){
   let scoreMul = 1;
   // мир x1.3 уже сам ускоряет набор очков, поэтому множитель 2.3 -> итог примерно x3
   if (bonus.active && bonus.kind === "fast"){ speed *= 1.3; scoreMul = 2.3; }
+  if (mode === "geo") speed = geoSpeed();   // geoSpeed уже учитывает бонус
   dist += speed * dt;
   score += dt * (speed / R) * 2.6 * scoreMul;
 
@@ -618,6 +739,26 @@ function update(dt){
     if (tc) tc.setAttribute("content", isNight ? "#0b1022" : "#f7f7f7");
   }
 
+  physPlayer(dt);
+
+  updateParts(dt);
+
+  /* --- фон --- */
+  for (const c of clouds){
+    c.x -= speed * 0.28 * c.s * dt;
+    if (c.x < -R * 4){ c.x = W + rnd(R * 2, W * 0.6); c.y = rnd(groundY * 0.08, groundY * 0.72); c.s = rnd(0.55, 1.25); }
+  }
+  for (const s of specks){
+    s.x -= speed * dt;
+    if (s.x < -12){ s.x = W + rnd(0, 60); s.o = rnd(2, 9); s.len = rnd(2, 10); }
+  }
+
+  obstStep(dt);
+}
+
+/* ---------- Физика игрока: у каждого режима своя ---------- */
+function physPlayer(dt){ if (mode === "geo") physGeo(dt); else physRun(dt); }
+function physRun(dt){
   /* --- прыжок --- */
   if (bonus.active && bonus.kind === "jet"){
     // джетпак: держишь палец — тяга вверх, отпустил — мягко падаешь
@@ -635,7 +776,8 @@ function update(dt){
     py += vy * dt;
     bodyAngle = clamp(vy / (V0 * 1.8), -0.42, 0.42) * -1;
     if (py >= 0){
-      py = 0; vy = 0; onGround = true; holding = false;
+      py = 0; vy = 0; onGround = true; holding = false; airJumps = 0;
+      puff(playerX, groundY, 7, "#b9b4a6");
       Snd.land();
     }
   } else {
@@ -645,16 +787,11 @@ function update(dt){
     py = -Math.abs(Math.sin(f)) * R * 0.09;
   }
 
-  /* --- фон --- */
-  for (const c of clouds){
-    c.x -= speed * 0.28 * c.s * dt;
-    if (c.x < -R * 4){ c.x = W + rnd(R * 2, W * 0.6); c.y = rnd(groundY * 0.08, groundY * 0.72); c.s = rnd(0.55, 1.25); }
-  }
-  for (const s of specks){
-    s.x -= speed * dt;
-    if (s.x < -12){ s.x = W + rnd(0, 60); s.o = rnd(2, 9); s.len = rnd(2, 10); }
-  }
+}
 
+/* ---------- Препятствия: у каждого режима свои ---------- */
+function obstStep(dt){ if (mode === "geo") obstGeo(dt); else obstRun(dt); }
+function obstRun(dt){
   /* --- появление препятствий --- */
   spawnIn -= speed * dt;
   if (spawnIn <= 0){
@@ -667,6 +804,7 @@ function update(dt){
   }
 
   /* --- движение и столкновения --- */
+  if (invuln > 0) invuln -= dt;
   const pcx = playerX;
   const pcy = groundY - R * LIFT + py;
   const pr  = R * 0.76;                   // хитбокс чуть меньше картинки
@@ -677,6 +815,7 @@ function update(dt){
       o.x -= speed * dt;
       if (o.x + o.w < -R){ obstacles.splice(i, 1); continue; }
       let hit = false;
+      if (invuln > 0) continue;
       for (const it of o.items){
         const bx = o.x + it.dx + it.w * 0.13;
         const bw = it.w * 0.74;
@@ -685,7 +824,7 @@ function update(dt){
         if (hitCircleRect(pcx, pcy, pr, bx, by, bw, bh)){ hit = true; break; }
       }
       if (hit){
-        if (!smash()){ gameOver(); return; }
+        if (!survive(o.x + o.w * 0.5, groundY - R)){ gameOver(); return; }
         obstacles.splice(i, 1);
         continue;
       }
@@ -693,15 +832,204 @@ function update(dt){
       o.x -= speed * 1.22 * dt;
       o.flap += dt * 11;
       if (o.x < -R * 3){ obstacles.splice(i, 1); continue; }
+      if (invuln > 0) continue;
       const dx = pcx - o.x, dy = pcy - o.y;
       const rr = pr + o.size * 0.74;
       if (dx*dx + dy*dy < rr*rr){
-        if (!smash()){ gameOver(); return; }
+        if (!survive(o.x, o.y)){ gameOver(); return; }
         obstacles.splice(i, 1);
         continue;
       }
     }
   }
+}
+
+/* ==================== РЕЖИМ «ГЕОМЕТРИ» ====================
+   Квадрат бежит сам, тап — прыжок с фиксированной дугой. Шипы убивают,
+   на блоки можно запрыгнуть сверху, но удар в бок — смерть.
+   py здесь — смещение НИЗА игрока от земли (0 на земле, меньше нуля в воздухе). */
+let GS = 0, GV0 = 0, GG = 0, geoSpin = 0, geoSpinTo = 0, attempts = 0;
+
+function geoPhysics(){
+  GS  = R * 1.45;                       // сторона квадрата
+  const apex = GS * 2.4, tUp = 0.31;    // дуга: хватает на 3 шипа подряд
+  GV0 = 2 * apex / tUp;
+  GG  = GV0 / tUp;
+}
+
+function geoSpeed(){ return GS * 7.5 * D().spd * (bonus.active && bonus.kind === "fast" ? 1.3 : 1); }
+// Дуга прыжка фиксированная, поэтому размеры препятствий считаем от НЕЁ, а не от
+// клетки: иначе на высокой скорости ступенька уезжает из-под ног и на неё не попасть.
+const jumpDist = () => (2 * GV0 / GG) * geoSpeed();
+const jumpApex = () => GS * 2.4;
+
+function geoJump(){
+  const airAllowed = (bonus.active && bonus.kind === "dbl") ? 1 : 0;
+  if (!onGround){
+    if (airJumps >= airAllowed) return;
+    airJumps++;
+    puff(playerX, groundY + py, 10, "#8ad6a0");
+  }
+  vy = -GV0 * (bonus.active && bonus.kind === "high" ? HIGH_JUMP : 1);
+  onGround = false;
+  geoSpinTo += Math.PI / 2;             // фирменный переворот
+  Snd.jump();
+}
+
+/** Прямоугольник игрока (немного меньше картинки — так честнее). */
+function geoBox(){
+  const inset = GS * 0.12;
+  return { x: playerX - GS / 2 + inset, y: groundY + py - GS + inset,
+           w: GS - inset * 2, h: GS - inset * 2 };
+}
+const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+function physGeo(dt){
+  const feetPrev = groundY + py;
+
+  if (bonus.active && bonus.kind === "jet"){
+    vy += (bonus.thrust ? -GG * 0.55 : GG * 0.3) * dt;
+    vy = clamp(vy, -GV0 * 0.8, GV0 * 0.7);
+  } else {
+    vy += GG * (bonus.active && bonus.kind === "high" ? HIGH_JUMP : 1) * dt;
+  }
+  py += vy * dt;
+
+  const ceiling = -(groundY - GS * 1.2);
+  if (py < ceiling){ py = ceiling; if (vy < 0) vy = 0; }
+
+  // ищем опору: земля или верх блока, который мы пересекли сверху вниз
+  const feet = groundY + py;
+  const bx0 = playerX - GS / 2, bx1 = playerX + GS / 2;
+  let floor = groundY;
+  for (const o of obstacles){
+    if (o.type !== "block") continue;
+    if (bx1 > o.x + GS * 0.1 && bx0 < o.x + o.w - GS * 0.1){
+      if (feetPrev <= o.y + 2 && feet >= o.y) floor = Math.min(floor, o.y);
+    }
+  }
+  if (feet >= floor){
+    if (!onGround || Math.abs(vy) > 1) puff(playerX, floor, 6, "#b9b4a6");
+    py = floor - groundY; vy = 0;
+    if (!onGround){ onGround = true; airJumps = 0; geoSpin = geoSpinTo = Math.round(geoSpinTo / (Math.PI / 2)) * (Math.PI / 2); }
+  } else {
+    onGround = false;
+  }
+
+  // в воздухе квадрат докручивается к цели
+  if (!onGround) geoSpin += (geoSpinTo - geoSpin) * Math.min(1, dt * 9) + dt * 3.2;
+  bodyAngle = geoSpin;
+}
+
+function spawnGeo(){
+  const JD = jumpDist(), JA = jumpApex();
+  const sw = GS * 0.8, sh = GS * 0.85;
+  const r = Math.random();
+
+  if (r < 0.55 || diff === 0){
+    // группа шипов: не шире 45% прыжка, иначе её не перелететь
+    const want = diff === 0 ? 1 : ri(1, Math.min(3, 1 + diff));
+    const fit  = Math.max(1, Math.floor(JD * 0.45 / (sw * 1.02)));
+    const n = Math.min(want, fit);
+    for (let i = 0; i < n; i++)
+      obstacles.push({ type: "spike", x: W + i * sw * 1.02, w: sw, h: sh });
+
+  } else if (r < 0.82){
+    // одиночный блок: ниже 72% верхней точки прыжка (можно перелететь)
+    // и шире 30% прыжка (можно приземлиться сверху)
+    const bh = Math.min(JA * 0.72, GS * rnd(0.9, 1.5));
+    const bw = Math.max(JD * 0.30, GS * 1.6);
+    obstacles.push({ type: "block", x: W, y: groundY - bh, w: bw, h: bh });
+
+  } else {
+    // лесенка: две ступени, каждая достаточно широкая для посадки
+    const stepW = Math.max(JD * 0.34, GS * 1.5);
+    let x = W, bh = JA * 0.34;
+    for (let i = 0; i < 2; i++){
+      obstacles.push({ type: "block", x: x, y: groundY - bh, w: stepW, h: bh });
+      x += stepW;
+      bh = Math.min(JA * 0.72, bh + JA * 0.3);
+    }
+  }
+  spawnIn = geoSpeed() * rnd(0.95, 1.7) * D().gap;
+}
+
+function obstGeo(dt){
+  const v = geoSpeed();
+  spawnIn -= v * dt;
+  if (spawnIn <= 0) spawnGeo();
+
+  if (invuln > 0) invuln -= dt;
+  const box = geoBox();
+
+  for (let i = obstacles.length - 1; i >= 0; i--){
+    const o = obstacles[i];
+    o.x -= v * dt;
+    if (o.x + (o.w || GS) < -GS){ obstacles.splice(i, 1); continue; }
+    if (invuln > 0) continue;
+
+    let dead = false, cx = o.x, cy = groundY;
+    if (o.type === "spike"){
+      // прощаем края: опасна середина шипа
+      const s = { x: o.x + o.w * 0.24, y: groundY - o.h * 0.82, w: o.w * 0.52, h: o.h * 0.82 };
+      if (overlap(box, s)){ dead = true; cx = o.x + o.w / 2; cy = groundY - o.h / 2; }
+    } else {
+      // сверху мы уже стоим на блоке; значит любое пересечение — удар в бок
+      if (overlap(box, o) && box.y + box.h > o.y + GS * 0.22){
+        dead = true; cx = o.x; cy = o.y + o.h / 2;
+      }
+    }
+    if (dead){
+      if (!survive(cx, cy)){ gameOver(); return; }
+      obstacles.splice(i, 1);
+    }
+  }
+}
+
+/* ---------- Отрисовка «Геометри» ---------- */
+function drawGeo(ink){
+  const danger = nightPhase > 0.5 ? "#ff6b6b" : "#e03e3e";
+  for (const o of obstacles){
+    if (o.type === "spike"){
+      ctx.fillStyle = danger;
+      ctx.beginPath();
+      ctx.moveTo(o.x, groundY + 1);
+      ctx.lineTo(o.x + o.w / 2, groundY - o.h);
+      ctx.lineTo(o.x + o.w, groundY + 1);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = ink; ctx.lineWidth = Math.max(1.5, R * 0.05); ctx.stroke();
+    } else {
+      const rad = GS * 0.14;
+      rrect(ctx, o.x, o.y, o.w, o.h, rad);
+      ctx.lineWidth = Math.max(3, R * 0.13); ctx.strokeStyle = ink; ctx.lineJoin = "round"; ctx.stroke();
+      ctx.save(); ctx.clip();
+      if (cactusReady) drawCover(cactusImg, o.x, o.y, o.w, o.h);
+      else { ctx.fillStyle = "#4a7c2f"; ctx.fill(); }
+      ctx.restore();
+    }
+  }
+}
+
+function drawPlayerGeo(ink){
+  const cx = playerX, cy = groundY + py - GS / 2;
+  ctx.save();
+  ctx.globalAlpha = 0.18; ctx.fillStyle = "#000";
+  ctx.beginPath(); ctx.ellipse(cx, groundY + 2, GS * 0.5, GS * 0.12, 0, 0, TAU); ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(bodyAngle);
+  if (invuln > 0) ctx.globalAlpha = 0.45 + 0.55 * Math.abs(Math.sin(runT * 18));
+  const s = GS / 2, rad = GS * 0.18;
+  rrect(ctx, -s, -s, GS, GS, rad);
+  ctx.save(); ctx.clip();
+  if (playerReady) ctx.drawImage(playerImg, -s, -s, GS, GS);
+  else { ctx.fillStyle = ink; ctx.fill(); }
+  ctx.restore();
+  rrect(ctx, -s, -s, GS, GS, rad);
+  ctx.lineWidth = Math.max(3, GS * 0.09); ctx.strokeStyle = ink; ctx.lineJoin = "round"; ctx.stroke();
+  ctx.restore();
 }
 
 /* ---------- Отрисовка ---------- */
@@ -860,7 +1188,8 @@ function render(){
   // чтобы кактусы, земля и счёт оставались читаемыми
   if (bgReady){
     drawCover(bgImg, 0, 0, W, H, 0.38);   // держим лицо в кадре и в альбомной ориентации
-    ctx.globalAlpha = lerp(0.58, 0.82, t);
+    // в «Геометри» гасим фон сильнее: шипы и блоки должны читаться мгновенно
+    ctx.globalAlpha = mode === "geo" ? lerp(0.80, 0.90, t) : lerp(0.58, 0.82, t);
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, W, H);
     ctx.globalAlpha = 1;
@@ -896,7 +1225,13 @@ function render(){
   for (const c of clouds) drawCloud(c);
   ctx.globalAlpha = 1;
 
-  // земля
+  // земля: в «Геометри» сплошная плита, в раннере — тонкая линия
+  if (mode === "geo"){
+    ctx.fillStyle = mixRGB([214, 208, 196], [24, 30, 56], t);
+    ctx.fillRect(0, groundY, W, H - groundY);
+    ctx.fillStyle = mixRGB([46, 155, 79], [126, 230, 160], t);
+    ctx.fillRect(0, groundY - Math.max(2, R * 0.07), W, Math.max(3, R * 0.09));
+  }
   ctx.strokeStyle = ink;
   ctx.lineWidth = Math.max(1.5, R * 0.065);
   ctx.beginPath();
@@ -912,12 +1247,17 @@ function render(){
   ctx.stroke();
 
   // препятствия
-  for (const o of obstacles){
-    if (o.type === "cactus") drawCactus(o, cac, ink);
-    else drawBird(o, ink);
+  if (mode === "geo"){
+    drawGeo(ink);
+  } else {
+    for (const o of obstacles){
+      if (o.type === "cactus") drawCactus(o, cac, ink);
+      else drawBird(o, ink);
+    }
   }
 
-  drawPlayer(ink);
+  if (mode === "geo") drawPlayerGeo(ink); else drawPlayer(ink);
+  drawParts();
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
 
@@ -951,6 +1291,7 @@ function frame(now){
   render();
   paintScore();
   paintBonus();
+  paintHud();
 }
 
 /* ---------- Экраны: ник, рейтинг, бонус ---------- */
@@ -963,6 +1304,51 @@ const boardNote  = document.getElementById("boardNote");
 const leadBox    = document.getElementById("leadBox");
 const bonusPick  = document.getElementById("bonusPick");
 const btnBonus   = document.getElementById("btnBonus");
+const modePick   = document.getElementById("modePick");
+const diffPick   = document.getElementById("diffPick");
+const modeTip    = document.getElementById("modeTip");
+const heartsEl   = document.getElementById("hearts");
+const attemptsEl = document.getElementById("attempts");
+
+/* --- чипы выбора режима и сложности --- */
+function buildPickers(){
+  modePick.innerHTML = Object.keys(MODES).map(k =>
+    '<button class="chip" data-mode="' + k + '" aria-pressed="false">' +
+    '<span class="em">' + MODES[k].icon + '</span>' + MODES[k].name + "</button>").join("");
+  diffPick.innerHTML = DIFFS.map((d, i) =>
+    '<button class="chip" data-diff="' + i + '" aria-pressed="false">' +
+    '<span class="em">' + d.icon + '</span>' + d.name + "</button>").join("");
+  for (const b of modePick.children)
+    b.addEventListener("click", e => { e.stopPropagation(); setMode(b.dataset.mode); });
+  for (const b of diffPick.children)
+    b.addEventListener("click", e => { e.stopPropagation(); setDiff(+b.dataset.diff); });
+}
+const CTRL_TIP = {
+  run: "Тап — прыжок · Долгое нажатие — выше<br>Прыгать можно только с земли",
+  geo: "Тап — прыжок · Шипы убивают<br>На блоки можно запрыгнуть сверху"
+};
+function paintPickers(){
+  for (const b of modePick.children) b.setAttribute("aria-pressed", String(b.dataset.mode === mode));
+  for (const b of diffPick.children) b.setAttribute("aria-pressed", String(+b.dataset.diff === diff));
+  modeTip.textContent = MODES[mode].tip;
+  const ct = document.getElementById("ctrlTip");
+  if (ct) ct.innerHTML = CTRL_TIP[mode];
+}
+function setMode(m){
+  if (!MODES[m] || m === mode) return;
+  mode = m; LS.set(K_MODE, m);
+  loadHi(); paintPickers(); refreshLeader(); paintScore();
+}
+function setDiff(i){
+  diff = clamp(i, 0, DIFFS.length - 1); LS.set(K_DIFF, String(diff));
+  physics(); geoPhysics(); paintPickers();
+}
+
+/* --- жизни и номер попытки в углу --- */
+function paintHud(){
+  heartsEl.textContent = lives > 0 ? "❤️".repeat(lives) : "";
+  attemptsEl.textContent = (mode === "geo" && state !== MENU) ? "ПОПЫТКА " + attempts : "";
+}
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
 
@@ -991,7 +1377,9 @@ function refreshLeader(){
   const first = Board.isFirst(nick);
   leadBox.hidden = false;
   if (first){
-    leadBox.textContent = "🏆 Ты на 1 месте — выбери бонус на 15 секунд:";
+    const B = BONUSES[bonus.kind] || BONUSES.jet;
+    leadBox.textContent = "🏆 Ты на 1 месте в режиме «" + MODES[mode].name + "» — выбери бонус:";
+    modeTip.textContent = B.icon + " " + B.name + " — " + B.tip;
     bonusPick.hidden = false;
   } else {
     const r = Board.rank(nick);
@@ -1022,13 +1410,24 @@ function saveNick(){
   refreshLeader();
 }
 
-/** С бонусом «Скорость» столкновение не убивает: препятствие сносится, а за него дают очки. */
-function smash(){
-  if (!(bonus.active && bonus.kind === "fast")) return false;
-  score += 25;
-  shake = Math.min(1, shake + 0.5);
-  Snd.tone(220, 90, 0.10, "sawtooth", 0.12);
-  return true;
+/** Пережил ли игрок столкновение: бонус «Скорость» сносит препятствие, жизнь — тратится. */
+function survive(x, y){
+  if (bonus.active && bonus.kind === "fast"){
+    score += 25;
+    shake = Math.min(1, shake + 0.5);
+    burst(x, y, 16, "#ffd34d");
+    Snd.tone(220, 90, 0.10, "sawtooth", 0.12);
+    return true;
+  }
+  if (lives > 0){
+    lives--;
+    invuln = 1.3;
+    shake = 1;
+    burst(x, y, 22, "#ff5b5b");
+    Snd.tone(300, 140, 0.18, "square", 0.16);
+    return true;
+  }
+  return false;
 }
 
 function startBonus(){
@@ -1048,7 +1447,8 @@ function stopBonus(){
   if (!onGround && bonus.kind === "jet" && vy < 0) vy = 0;   // мягко переходим в падение
 }
 function paintBonus(){
-  const show = state === PLAY && bonus.armed && (!bonus.used || bonus.active);
+  const B = BONUSES[bonus.kind];
+  const show = state === PLAY && bonus.armed && B && B.timed && (!bonus.used || bonus.active);
   btnBonus.classList.toggle("show", show);
   if (!show) return;
   btnBonus.classList.toggle("on", bonus.active);
@@ -1118,6 +1518,7 @@ btnSound.addEventListener("click", e => {
   if (Snd.on){ Snd.init(); Snd.point(); }
 });
 document.getElementById("btnAgain").addEventListener("click", e => { e.stopPropagation(); startGame(); });
+document.getElementById("btnPlay").addEventListener("click", e => { e.stopPropagation(); startGame(); });
 
 document.getElementById("btnNickOk").addEventListener("click", e => { e.stopPropagation(); saveNick(); });
 nickInput.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); saveNick(); } });
@@ -1205,9 +1606,13 @@ if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0){
 layout();
 initBackground();
 paintScore();
+buildPickers();
+paintPickers();
+loadHi();
 if (nick){ nickScreen.classList.add("hidden"); startEl.classList.remove("hidden"); }
 else showNickScreen();
 refreshLeader();
+paintHud();
 requestAnimationFrame(frame);
 </script>
 </body>
