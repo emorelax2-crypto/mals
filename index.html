@@ -270,6 +270,7 @@
   <div class="pickRow" id="diffPick"></div>
   <div class="tip" id="modeTip"></div>
   <div class="tip" id="ctrlTip"></div>
+  <div class="tip" id="buildTag" style="opacity:.35"></div>
   <div class="lead" id="leadBox" hidden></div>
   <div class="shopRow" id="bonusPick" hidden>
     <!-- заполняется из JS: иконка, название и цена или «куплено» -->
@@ -2102,10 +2103,24 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // офлайн-режим и установка на домашний экран
+const BUILD = "7";     // виден на стартовом экране — по нему сразу ясно, какая версия открыта
+
 if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0){
+  // Если управление перехватит НОВЫЙ воркер, перезагружаем страницу: иначе
+  // в окне останется та версия, которую отдал предыдущий воркер.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController || reloading) return;   // при самой первой установке перезагрузка не нужна
+    reloading = true;
+    location.reload();
+  });
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("sw.js", { updateViaCache: "none" })
-      .then(reg => { try { reg.update(); } catch(e){} })
+      .then(reg => {
+        try { reg.update(); } catch(e){}
+        setInterval(() => { try { reg.update(); } catch(e){} }, 60000);
+      })
       .catch(() => {});
   });
 }
@@ -2113,6 +2128,7 @@ if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0){
 layout();
 initBackground();
 paintScore();
+document.getElementById("buildTag").textContent = "версия " + BUILD;
 buildPickers();
 buildPickers(modePick2, diffPick2, true);
 paintPickers();

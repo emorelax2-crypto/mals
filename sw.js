@@ -2,7 +2,7 @@
    установленная игра навсегда застревает на старой сборке. Картинки и иконки,
    наоборот, отдаём из кэша сразу: они меняются редко.
    Имя кэша содержит версию: при её смене старый кэш удаляется в activate. */
-const VERSION = "v2";
+const VERSION = "v3";
 const CACHE = "sergey-zhirny-" + VERSION;
 const ASSETS = [
   "./", "./index.html", "./manifest.webmanifest",
